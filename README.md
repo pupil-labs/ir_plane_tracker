@@ -8,7 +8,6 @@
 [![pypi version](https://img.shields.io/pypi/v/pupil-labs-ir-plane-tracker.svg)](https://pypi.org/project/pupil-labs-ir-plane-tracker/)
 [![python version](https://img.shields.io/pypi/pyversions/pupil-labs-ir-plane-tracker)](https://pypi.org/project/pupil-labs-ir-plane-tracker/)
 
-
 IR Plane Tracker
 
 ## Installation

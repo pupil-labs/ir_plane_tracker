@@ -14,4 +14,3 @@ python_package_import_name: ir_plane_tracker
 repository_name: pl-ir-plane-tracker
 repository_namespace: pupil-labs
 repository_provider: github.com
-
