@@ -1,0 +1,12 @@
+{
+  "plane_width": 28.4,
+  "plane_height": 18.5,
+  "top_left_margin": 1.57,
+  "top_right_margin": 2.1,
+  "bottom_left_margin": 1.55,
+  "bottom_right_margin": 1.4,
+  "right_top_margin": 4.6,
+  "left_top_margin": 4.33,
+  "norm_line_points": [0.0, 6.0, 8.0, 10.0],
+  "img_size_factor": 1.0
+}

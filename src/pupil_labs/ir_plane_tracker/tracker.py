@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
 
@@ -393,89 +394,136 @@ class Combinations:
         return len(self._combinations)
 
 
+@dataclass
+class IRPlaneTrackerParams:
+    plane_width: float = 28.4
+    plane_height: float = 18.5
+    top_left_margin: float = 1.57
+    top_right_margin: float = 2.1
+    bottom_left_margin: float = 1.55
+    bottom_right_margin: float = 1.4
+    right_top_margin: float = 4.6
+    left_top_margin: float = 4.33
+    norm_line_points: npt.NDArray[np.float64] = field(
+        default_factory=lambda: np.array([0.0, 6.0, 8.0, 10.0])
+    )
+    img_size_factor: float = 1.0
+    thresh_c: int = 75
+    thresh_half_kernel_size: int = 20
+    min_contour_area: int = 20
+    debug: bool = False
+
+    @staticmethod
+    def from_json(json_path: str) -> "IRPlaneTrackerParams":
+        import json
+
+        with open(json_path) as f:
+            data = json.load(f)
+
+        params = IRPlaneTrackerParams(
+            img_size_factor=data.get("img_size_factor", 1.0),
+            thresh_c=data.get("thresh_c", 75),
+            thresh_half_kernel_size=data.get("thresh_half_kernel_size", 20),
+            min_contour_area=data.get("min_contour_area", 20),
+            plane_width=data.get("total_width", 28.4),
+            plane_height=data.get("total_height", 18.5),
+            top_left_margin=data.get("top_left_margin", 1.57),
+            top_right_margin=data.get("top_right_margin", 2.1),
+            bottom_left_margin=data.get("bottom_left_margin", 1.55),
+            bottom_right_margin=data.get("bottom_right_margin", 1.4),
+            right_top_margin=data.get("right_top_margin", 4.6),
+            left_top_margin=data.get("left_top_margin", 4.33),
+            norm_line_points=np.array(data.get("norm_line_points", [0, 6, 8, 10])),
+        )
+        return params
+
+
 class IRPlaneTracker:
     def __init__(
         self,
         camera_matrix: npt.NDArray[np.float64],
         dist_coeffs: npt.NDArray[np.float64],
-        m_img_size_factor: float,
-        thresh_c: int = 75,
-        thresh_half_kernel_size: int = 20,
-        min_contour_area: int = 20,
+        params: IRPlaneTrackerParams | None = None,
     ):
         self.camera_matrix = camera_matrix
         self.dist_coeffs = dist_coeffs
-        self.img_size_factor = m_img_size_factor
-        self.thresh_c = thresh_c
-        self.thresh_kernel_size = (
-            2 * int(thresh_half_kernel_size * m_img_size_factor) + 1
-        )
-        self.min_contour_area = min_contour_area
-        self.debug = True
-        self.vis = None
+        if params is None:
+            self.params = IRPlaneTrackerParams()
+        else:
+            self.params = params
 
-        total_width = 28.4
-        total_height = 18.5
-        top_left_margin = 1.57
-        top_right_margin = 2.1
-        bottom_left_margin = 1.55
-        bottom_right_margin = 1.4
-        right_top_margin = 4.6
-        left_top_margin = 4.33
-        norm_line_points = np.array([0, 6, 8, 10])
-        self.obj_point_map = {
+        self.obj_point_map = self.init_object_point_map()
+
+    def init_object_point_map(self) -> dict[LinePositions, npt.NDArray[np.float64]]:
+        obj_map = {
             LinePositions.TOP_LEFT: np.column_stack((
-                ((10 - norm_line_points[::-1]) + top_left_margin)[::-1],
-                np.zeros_like(norm_line_points),
-                np.zeros_like(norm_line_points),
+                (
+                    (10 - self.params.norm_line_points[::-1])
+                    + self.params.top_left_margin
+                )[::-1],
+                np.zeros_like(self.params.norm_line_points),
+                np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.TOP_RIGHT: np.column_stack((
-                total_width + (norm_line_points - 10) - top_right_margin,
-                np.zeros_like(norm_line_points),
-                np.zeros_like(norm_line_points),
+                self.params.plane_width
+                + (self.params.norm_line_points - 10)
+                - self.params.top_right_margin,
+                np.zeros_like(self.params.norm_line_points),
+                np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.BOTTOM_LEFT: np.column_stack((
-                ((10 - norm_line_points[::-1]) + bottom_left_margin)[::-1],
-                np.ones_like(norm_line_points) * total_height,
-                np.zeros_like(norm_line_points),
+                (
+                    (10 - self.params.norm_line_points[::-1])
+                    + self.params.bottom_left_margin
+                )[::-1],
+                np.ones_like(self.params.norm_line_points) * self.params.plane_height,
+                np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.BOTTOM_RIGHT: np.column_stack((
-                total_width + (norm_line_points - 10) - bottom_right_margin,
-                np.ones_like(norm_line_points) * total_height,
-                np.zeros_like(norm_line_points),
+                self.params.plane_width
+                + (self.params.norm_line_points - 10)
+                - self.params.bottom_right_margin,
+                np.ones_like(self.params.norm_line_points) * self.params.plane_height,
+                np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.LEFT: np.column_stack((
-                np.zeros_like(norm_line_points),
-                norm_line_points + left_top_margin,
-                np.zeros_like(norm_line_points),
+                np.zeros_like(self.params.norm_line_points),
+                self.params.norm_line_points + self.params.left_top_margin,
+                np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.RIGHT: np.column_stack((
-                np.ones_like(norm_line_points) * total_width,
-                (10 - norm_line_points[::-1] + right_top_margin)[::-1],
-                np.zeros_like(norm_line_points),
+                np.ones_like(self.params.norm_line_points) * self.params.plane_width,
+                (
+                    10
+                    - self.params.norm_line_points[::-1]
+                    + self.params.right_top_margin
+                )[::-1],
+                np.zeros_like(self.params.norm_line_points),
             )),
         }
+        return obj_map
 
     def get_contours(self, img: np.ndarray) -> list[np.ndarray]:
+        thresh_kernel_size = self.params.thresh_half_kernel_size * 2 + 1
         img = cv2.adaptiveThreshold(
             img,
             255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
             cv2.THRESH_BINARY,
-            self.thresh_kernel_size,
-            self.thresh_c,
+            thresh_kernel_size,
+            self.params.thresh_c,
         )
 
-        if self.debug:
+        if self.params.debug:
             cv2.imshow("Thresholded Image", img)
 
-        contours, hierarchy = cv2.findContours(
-            img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE
-        )
+        contours, _ = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-        contours = [c for c in contours if cv2.contourArea(c) > self.min_contour_area]
+        contours = [
+            c for c in contours if cv2.contourArea(c) > self.params.min_contour_area
+        ]
 
-        if self.debug:
+        if self.params.debug:
             vis = self.vis.copy()
             for cnt in contours:
                 cv2.drawContours(vis, [cnt], 0, (255, 165, 0), 2)
@@ -549,7 +597,7 @@ class IRPlaneTracker:
             if add_ellipse:
                 ellipses.append(ellipse)
 
-        if self.debug:
+        if self.params.debug:
             vis = self.vis.copy()
             for ellipse in ellipses:
                 center = (int(ellipse.center[0]), int(ellipse.center[1]))
@@ -593,7 +641,7 @@ class IRPlaneTracker:
         return cross_ratio
 
     def find_feature_lines(self, ellipses: list[Ellipse]) -> list[list[Ellipse]]:  # noqa: C901
-        max_line_length = 200 * self.img_size_factor
+        max_line_length = 200 * self.params.img_size_factor
         max_point_inter_distance = max_line_length * 0.6
 
         feature_lines = []
@@ -721,7 +769,7 @@ class IRPlaneTracker:
                 final_feature_lines.append(line)
                 cr_values_debug.append(cr)
 
-        if self.debug:
+        if self.params.debug:
             vis = self.vis.copy()
 
             cv2.putText(
@@ -843,54 +891,6 @@ class IRPlaneTracker:
         if mean_error >= 5.0:
             rvec = tvec = None
 
-        # if self.debug:
-        #     vis = self.vis.copy()
-        #     cv2.putText(
-        #         vis,
-        #         f"Optis: {num_optimizations}",
-        #         (50, 100),
-        #         cv2.FONT_HERSHEY_SIMPLEX,
-        #         1,
-        #         (0, 0, 255),
-        #         2,
-        #     )
-        #     cv2.putText(
-        #         vis,
-        #         f"Reproj Error: {mean_error:.2f}",
-        #         (50, 150),
-        #         cv2.FONT_HERSHEY_SIMPLEX,
-        #         1,
-        #         (0, 0, 255),
-        #         2,
-        #     )
-        #     for pos, line in combination._map.items():
-        #         if line is not None:
-        #             cv2.polylines(
-        #                 vis,
-        #                 [
-        #                     np.array(
-        #                         [e.center for e in line.ellipses],
-        #                         dtype=np.int32,
-        #                     )
-        #                 ],
-        #                 isClosed=False,
-        #                 color=(0, 255, 0),
-        #                 thickness=2,
-        #             )
-        #             p = np.mean(
-        #                 np.array([e.center for e in line.ellipses]), axis=0
-        #             ).astype(int)
-        #             cv2.putText(
-        #                 vis,
-        #                 pos.name,
-        #                 (int(p[0]), int(p[1])),
-        #                 cv2.FONT_HERSHEY_SIMPLEX,
-        #                 0.5,
-        #                 (0, 0, 255),
-        #                 1,
-        #             )
-
-        #     cv2.imshow("Pose Estimation - Line Mapping", vis)
         return rvec, tvec
 
     def calculate_screen_corners(
@@ -916,7 +916,7 @@ class IRPlaneTracker:
     def __call__(self, image: npt.NDArray[np.uint8]):
         # image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)
 
-        if self.debug:
+        if self.params.debug:
             self.vis = image.copy()
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -936,7 +936,7 @@ class IRPlaneTracker:
 
         feature_lines = [FeatureLine(line) for line in feature_lines]
 
-        if self.debug:
+        if self.params.debug:
             vis = self.vis.copy()
             for line in feature_lines:
                 line_points = np.array(

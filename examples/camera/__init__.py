@@ -202,7 +202,7 @@ class PNSCam(V4l2Backend):
         return frame
 
 
-class SurveilanceCam(UVCBackend):
+class HDDigitalCam(UVCBackend):
     def __init__(self):
         spec = CameraSpec(
             name="HD USB Camera",
