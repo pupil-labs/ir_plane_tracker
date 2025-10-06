@@ -411,6 +411,16 @@ class IRPlaneTrackerParams:
     thresh_c: int = 75
     thresh_half_kernel_size: int = 20
     min_contour_area: int = 20
+    max_contour_area: int = 120
+    min_contour_count: int = 8
+    min_contour_support: int = 6
+    min_ellipse_size: int = 6
+    max_ellipse_aspect_ratio: float = 2.0
+    min_ellipse_count: int = 8
+    max_cr_error: float = 0.03
+    min_feature_line_count: int = 2
+    max_line_length: float = 200.0
+    optimization_error_threshold: float = 5.0
     debug: bool = False
 
     @staticmethod
@@ -425,6 +435,14 @@ class IRPlaneTrackerParams:
             thresh_c=data.get("thresh_c", 75),
             thresh_half_kernel_size=data.get("thresh_half_kernel_size", 20),
             min_contour_area=data.get("min_contour_area", 20),
+            max_contour_area=data.get("max_contour_area", 120),
+            min_contour_count=data.get("min_contour_count", 8),
+            min_contour_support=data.get("min_contour_support", 6),
+            min_ellipse_size=data.get("min_ellipse_size", 6),
+            max_ellipse_aspect_ratio=data.get("max_ellipse_aspect_ratio", 2.0),
+            min_ellipse_count=data.get("min_ellipse_count", 8),
+            max_cr_error=data.get("max_cr_error", 0.03),
+            min_feature_line_count=data.get("min_feature_line_count", 2),
             plane_width=data.get("total_width", 28.4),
             plane_height=data.get("total_height", 18.5),
             top_left_margin=data.get("top_left_margin", 1.57),
@@ -436,6 +454,261 @@ class IRPlaneTrackerParams:
             norm_line_points=np.array(data.get("norm_line_points", [0, 6, 8, 10])),
         )
         return params
+
+
+class DebugData:
+    def __init__(self, params: IRPlaneTrackerParams) -> None:
+        self.params = params
+        self.img_raw: npt.NDArray[np.uint8] | None = None
+        self.img_gray: npt.NDArray[np.uint8] | None = None
+        self._img_thresholded: npt.NDArray[np.uint8] | None = None
+        self.contours_raw: list[npt.NDArray[np.int32]] | None = None
+        self.contour_areas: list[float] | None = None
+        self.contours_filtered: list[npt.NDArray[np.int32]] | None = None
+        self.ellipses_raw: list[Ellipse] | None = None
+        self.ellipses_filtered: list[Ellipse] | None = None
+        self.feature_lines_raw: list[FeatureLine] | None = None
+        self.feature_lines_filtered: list[FeatureLine] | None = None
+        self.feature_lines_processed: list[FeatureLine] | None = None
+        self.cr_values: list[float] | None = None
+        self.optimization_errors: list[float] = []
+        self.optimization_final_combination: FeatureLineCombination | None = None
+        self.plane_corners: npt.NDArray[np.float64] | None = None
+
+    @property
+    def img_thresholded(self) -> npt.NDArray[np.uint8] | None:
+        return self._img_thresholded
+
+    @img_thresholded.setter
+    def img_thresholded(self, value: npt.NDArray[np.uint8]) -> None:
+        self._img_thresholded = cv2.cvtColor(value, cv2.COLOR_GRAY2BGR)  # type: ignore
+
+    def visualize(self):
+        cv2.imshow("Raw Image", self.img_raw)
+        cv2.imshow("Thresholded Image", self.img_thresholded)
+
+        self._visualize_contours()
+        self._visualize_ellipses()
+        self._visualize_feature_lines()
+        self._visualize_feature_lines_processed()
+        self._visualize_optimization()
+        self._visualize_plane()
+
+    def _visualize_contours(self):
+        vis = self.img_thresholded.copy()
+        cv2.drawContours(vis, self.contours_raw, -1, (0, 0, 255), 2)
+        cv2.drawContours(vis, self.contours_filtered, -1, (0, 255, 0), 2)
+
+        for c, a in zip(self.contours_raw, self.contour_areas, strict=False):
+            cv2.putText(
+                vis,
+                f"{a:.0f}",
+                tuple(c[c[:, :, 1].argmin()][0]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 0, 0),
+                1,
+            )
+        cv2.putText(
+            vis,
+            f"Min Area: {self.params.min_contour_area}",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Max Area: {self.params.max_contour_area}",
+            (50, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.imshow("Contours", vis)
+
+    def _visualize_ellipses(self):
+        vis = self.img_thresholded.copy()
+        if self.ellipses_raw is not None:
+            for ellipse in self.ellipses_raw:
+                center = (int(ellipse.center[0]), int(ellipse.center[1]))
+                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
+                angle = ellipse.angle
+                cv2.ellipse(vis, center, size, angle, 0, 360, (0, 0, 255), 2)
+
+                cv2.putText(
+                    vis,
+                    (
+                        f"{ellipse.minor_axis:.1f} "
+                        f"{ellipse.major_axis / ellipse.minor_axis:.1f}"
+                    ),
+                    (center[0] - 10, center[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.3,
+                    (255, 0, 0),
+                    1,
+                )
+
+        if self.ellipses_filtered is not None:
+            for ellipse in self.ellipses_filtered:
+                center = (int(ellipse.center[0]), int(ellipse.center[1]))
+                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
+                angle = ellipse.angle
+                cv2.ellipse(vis, center, size, angle, 0, 360, (0, 255, 0), 2)
+
+        cv2.putText(
+            vis,
+            f"Min Size: {self.params.min_ellipse_size}",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Max Aspect Ratio: {self.params.max_ellipse_aspect_ratio}",
+            (50, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.imshow("Ellipses", vis)
+
+    def _visualize_feature_lines(self):
+        vis = self.img_thresholded.copy()
+        if self.feature_lines_raw is not None and self.cr_values is not None:
+            for line, cr in zip(self.feature_lines_raw, self.cr_values, strict=False):
+                line_points = np.array(
+                    [ellipse.center for ellipse in line], dtype=np.int32
+                )
+                cv2.polylines(
+                    vis, [line_points], isClosed=False, color=(0, 0, 255), thickness=2
+                )
+                # cross ratio
+                cv2.putText(
+                    vis,
+                    f"{cr:.3f}",
+                    (int(line[0].center[0]), int(line[0].center[1] - 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 0),
+                    1,
+                )
+                for ellipse in line:
+                    cv2.circle(
+                        vis,
+                        (int(ellipse.center[0]), int(ellipse.center[1])),
+                        5,
+                        (0, 0, 255),
+                        -1,
+                    )
+
+        if self.feature_lines_filtered is not None:
+            for line in self.feature_lines_filtered:
+                line_points = np.array(
+                    [ellipse.center for ellipse in line], dtype=np.int32
+                )
+                cv2.polylines(
+                    vis, [line_points], isClosed=False, color=(0, 255, 0), thickness=2
+                )
+                for ellipse in line:
+                    cv2.circle(
+                        vis,
+                        (int(ellipse.center[0]), int(ellipse.center[1])),
+                        5,
+                        (0, 255, 0),
+                        -1,
+                    )
+
+        cv2.imshow("Feature Lines", vis)
+
+    def _visualize_feature_lines_processed(self):
+        vis = self.img_thresholded.copy()
+        if self.feature_lines_processed is not None:
+            for line in self.feature_lines_processed:
+                line_points = np.array(
+                    [ellipse.center for ellipse in line.ellipses], dtype=np.int32
+                )
+                cv2.polylines(
+                    vis, [line_points], isClosed=False, color=(0, 255, 0), thickness=2
+                )
+                orientation = line.orientation.name
+                p = np.mean(line_points, axis=0).astype(int)
+                cv2.putText(
+                    vis,
+                    orientation,
+                    (int(p[0]), int(p[1])),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 255),
+                    1,
+                )
+
+        cv2.imshow("Feature Lines Processed", vis)
+
+    def _visualize_optimization(self):
+        vis = self.img_thresholded.copy()
+        if self.optimization_final_combination is not None:
+            for position, line in self.optimization_final_combination._map.items():
+                if line is not None:
+                    line_points = np.array(
+                        [ellipse.center for ellipse in line.ellipses], dtype=np.int32
+                    )
+                    cv2.polylines(
+                        vis,
+                        [line_points],
+                        isClosed=False,
+                        color=(0, 255, 0),
+                        thickness=2,
+                    )
+                    orientation = line.orientation.name
+                    p = np.mean(line_points, axis=0).astype(int)
+                    cv2.putText(
+                        vis,
+                        f"{position.name} {orientation}",
+                        (int(p[0]), int(p[1])),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 0, 255),
+                        1,
+                    )
+
+            cv2.putText(
+                vis,
+                f"Final Error: {self.optimization_errors[-1]:.2f}",
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+            )
+        cv2.imshow("Optimization Result", vis)
+
+    def _visualize_plane(self):
+        vis = self.img_raw.copy()
+
+        if self.plane_corners is not None:
+            cv2.polylines(
+                vis,
+                [self.plane_corners.astype(np.int32)],
+                isClosed=True,
+                color=(255, 0, 0),
+                thickness=2,
+            )
+            for corner in self.plane_corners:
+                cv2.circle(
+                    vis,
+                    (int(corner[0]), int(corner[1])),
+                    10,
+                    (0, 255, 0),
+                    -1,
+                )
+
+        cv2.imshow("Tracked Plane", vis)
 
 
 class IRPlaneTracker:
@@ -453,6 +726,7 @@ class IRPlaneTracker:
             self.params = params
 
         self.obj_point_map = self.init_object_point_map()
+        self.debug = DebugData(params)
 
     def init_object_point_map(self) -> dict[LinePositions, npt.NDArray[np.float64]]:
         obj_map = {
@@ -504,6 +778,8 @@ class IRPlaneTracker:
         return obj_map
 
     def get_contours(self, img: np.ndarray) -> list[np.ndarray]:
+        img = 255 - img
+
         thresh_kernel_size = self.params.thresh_half_kernel_size * 2 + 1
         img = cv2.adaptiveThreshold(
             img,
@@ -513,30 +789,22 @@ class IRPlaneTracker:
             thresh_kernel_size,
             self.params.thresh_c,
         )
-
-        if self.params.debug:
-            cv2.imshow("Thresholded Image", img)
+        self.debug.img_thresholded = img.copy()
 
         contours, _ = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        self.debug.contours_raw = contours
 
+        contour_areas = [cv2.contourArea(c) for c in contours]
+        self.debug.contour_areas = contour_areas
+        # filter contours by area
         contours = [
-            c for c in contours if cv2.contourArea(c) > self.params.min_contour_area
+            c
+            for c, a in zip(contours, contour_areas, strict=False)
+            if a > self.params.min_contour_area
+            and a < self.params.max_contour_area
+            and len(c) >= self.params.min_contour_support
         ]
-
-        if self.params.debug:
-            vis = self.vis.copy()
-            for cnt in contours:
-                cv2.drawContours(vis, [cnt], 0, (255, 165, 0), 2)
-                cv2.putText(
-                    vis,
-                    f"{cv2.contourArea(cnt):.0f}",
-                    tuple(cnt[cnt[:, :, 1].argmin()][0]),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 0),
-                    1,
-                )
-            cv2.imshow("Contours", vis)
+        self.debug.contours_filtered = contours
 
         return contours
 
@@ -544,34 +812,28 @@ class IRPlaneTracker:
         self, contours: list[np.ndarray], img_shape: tuple[int, int]
     ) -> list[Ellipse]:
         # ------------ Ellipse extraction --------------------------------------
-        min_ellipse_size = 3
-        # int min_contour_points = int(1.5 * min_ellipse_size);
-        max_ellipse_aspect_ratio = 2.0  # 7
 
         ellipses = []
-        for i in range(len(contours)):
-            count = contours[i].shape[0]
-            if count < 6:
-                continue
-
-            contour_area = cv2.contourArea(contours[i])
-            if contour_area < 20:
-                continue
-
-            pointsf = contours[i].astype(np.float32)
-            ellipse = cv2.fitEllipse(pointsf)
+        for contour in contours:
+            points = contour.astype(np.float32)
+            ellipse = cv2.fitEllipse(points)
             ellipse = Ellipse(*ellipse)  # type: ignore
+            ellipses.append(ellipse)
 
-            # Plausibility checks
-            box_max = max(ellipse.size[0], ellipse.size[1])
-            box_min = min(ellipse.size[0], ellipse.size[1])
-            if box_max > box_min * max_ellipse_aspect_ratio:
+        self.debug.ellipses_raw = ellipses
+
+        ellipses_filtered = []
+        for ellipse in ellipses:
+            if (
+                ellipse.major_axis
+                > ellipse.minor_axis * self.params.max_ellipse_aspect_ratio
+            ):
                 continue
-            if box_max > min(img_shape[0], img_shape[1]) * 0.2:
+            if ellipse.minor_axis > min(img_shape[0], img_shape[1]) * 0.2:
                 continue
-            if box_min < 0.5 * min_ellipse_size:
+            if ellipse.minor_axis < 0.5 * self.params.min_ellipse_size:
                 continue
-            if box_max < min_ellipse_size:
+            if ellipse.major_axis < self.params.min_ellipse_size:
                 continue
             if (
                 ellipse.center[0] < 0
@@ -581,54 +843,28 @@ class IRPlaneTracker:
             ):
                 continue
 
-            add_ellipse = True
+            ellipses_filtered.append(ellipse)
 
+        ellipses_deduplicated = []
+        for idx, ellipse in enumerate(ellipses_filtered):
             # Check for double borders on circles and keep only larger ones
-            for i in range(len(ellipses)):
-                dist_thresh = box_min * 0.1
-                dist = abs(ellipse.center[0] - ellipses[i].center[0]) + abs(
-                    ellipse.center[1] - ellipses[i].center[1]
+            add_ellipse = True
+            for i in range(idx, len(ellipses_filtered)):
+                dist_thresh = ellipse.minor_axis * 0.1
+                dist = abs(ellipse.center[0] - ellipses_filtered[i].center[0]) + abs(
+                    ellipse.center[1] - ellipses_filtered[i].center[1]
                 )
-                if dist < dist_thresh:
+                if (
+                    dist < dist_thresh
+                    and ellipse.minor_axis < ellipses_filtered[i].minor_axis
+                ):
                     add_ellipse = False
-                    ellipses[i] = ellipse
                     break
 
             if add_ellipse:
-                ellipses.append(ellipse)
+                ellipses_deduplicated.append(ellipse)
+        self.debug.ellipses_filtered = ellipses_deduplicated
 
-        if self.params.debug:
-            vis = self.vis.copy()
-            for ellipse in ellipses:
-                center = (int(ellipse.center[0]), int(ellipse.center[1]))
-                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
-                cv2.ellipse(vis, center, size, ellipse.angle, 0, 360, (255, 165, 0), 2)
-                cv2.putText(
-                    vis,
-                    f"{max(ellipse.size):.1f}",
-                    (int(ellipse.center[0]), int(ellipse.center[1])),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.4,
-                    (0, 255, 0),
-                    1,
-                )
-            cv2.imshow("Ellipses - Max Axis", vis)
-
-            vis = self.vis.copy()
-            for ellipse in ellipses:
-                center = (int(ellipse.center[0]), int(ellipse.center[1]))
-                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
-                cv2.ellipse(vis, center, size, ellipse.angle, 0, 360, (255, 165, 0), 2)
-                cv2.putText(
-                    vis,
-                    f"{max(ellipse.size) / min(ellipse.size):.1f}",
-                    (int(ellipse.center[0]), int(ellipse.center[1])),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.4,
-                    (0, 255, 0),
-                    1,
-                )
-            cv2.imshow("Ellipses - Aspect Ratio", vis)
         return ellipses
 
     @staticmethod
@@ -641,7 +877,7 @@ class IRPlaneTracker:
         return cross_ratio
 
     def find_feature_lines(self, ellipses: list[Ellipse]) -> list[list[Ellipse]]:  # noqa: C901
-        max_line_length = 200 * self.params.img_size_factor
+        max_line_length = self.params.max_line_length
         max_point_inter_distance = max_line_length * 0.6
 
         feature_lines = []
@@ -757,66 +993,17 @@ class IRPlaneTracker:
 
                 if nLine_Candidates == 1:
                     feature_lines.append(line_candidate)
+        self.debug.feature_lines_raw = feature_lines
 
-        cross_ratio_max_dist = 0.03
-        final_feature_lines = []
-        cr_values_debug = []
-        for line in feature_lines:
-            cr = self.cross_ratio(line)
-
-            # Check correctness of cross ratio
-            if abs(cr - 0.375) < cross_ratio_max_dist:
-                final_feature_lines.append(line)
-                cr_values_debug.append(cr)
-
-        if self.params.debug:
-            vis = self.vis.copy()
-
-            cv2.putText(
-                vis,
-                f"Lines: {len(final_feature_lines)}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
-            cv2.putText(
-                vis,
-                f"Ellipses: {len(ellipses)}",
-                (10, 60),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (0, 255, 0),
-                2,
-            )
-
-            for line, cr in zip(final_feature_lines, cr_values_debug, strict=False):
-                line_points = np.array(
-                    [ellipse.center for ellipse in line], dtype=np.int32
-                )
-                cv2.polylines(
-                    vis, [line_points], isClosed=False, color=(0, 255, 0), thickness=2
-                )
-                # cross ratio
-                cv2.putText(
-                    vis,
-                    f"{cr:.3f}",
-                    (int(line[0].center[0]), int(line[0].center[1] - 10)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 0),
-                    1,
-                )
-                for ellipse in line:
-                    cv2.circle(
-                        vis,
-                        (int(ellipse.center[0]), int(ellipse.center[1])),
-                        3,
-                        (255, 0, 0),
-                        -1,
-                    )
-            cv2.imshow("Feature Lines - CR", vis)
+        cr_values = [self.cross_ratio(line) for line in feature_lines]
+        target_cr_value = 0.375
+        self.debug.cr_values = cr_values
+        final_feature_lines = [
+            line
+            for line, cr in zip(feature_lines, cr_values, strict=False)
+            if abs(cr - target_cr_value) < self.params.max_cr_error
+        ]
+        self.debug.feature_lines_filtered = final_feature_lines
 
         return final_feature_lines
 
@@ -864,9 +1051,13 @@ class IRPlaneTracker:
     def fit_camera_pose(
         self, combinations: Combinations
     ) -> tuple[npt.NDArray[np.float64] | None, npt.NDArray[np.float64] | None]:
+        optimization_error_threshold = (
+            self.params.optimization_error_threshold * self.params.img_size_factor
+        )
         rvec = tvec = None
         mean_error = float("inf")
         num_optimizations = 0
+        self.debug.optimization_errors = []
         for combination in combinations:
             obj_points, img_points = self.get_obj_and_img_points(combination)
 
@@ -884,102 +1075,103 @@ class IRPlaneTracker:
                 continue
 
             mean_error = self.reprojection_error(obj_points, img_points, rvec, tvec)
+            self.debug.optimization_errors.append(mean_error)
 
-            if mean_error < 5.0:
+            # if self.params.debug:
+            #     vis = self.vis.copy()
+            #     for pos, line in combination._map.items():
+            #         if line is not None:
+            #             line_points = np.array(
+            #                 [ellipse.center for ellipse in line.ellipses],
+            #                 dtype=np.int32,
+            #             )
+            #             cv2.polylines(
+            #                 vis,
+            #                 [line_points],
+            #                 isClosed=False,
+            #                 color=(0, 255, 0),
+            #                 thickness=2,
+            #             )
+            #             p = np.mean(line_points, axis=0).astype(int)
+            #             cv2.putText(
+            #                 vis,
+            #                 f"{pos.name}",
+            #                 (int(p[0]), int(p[1])),
+            #                 cv2.FONT_HERSHEY_SIMPLEX,
+            #                 0.5,
+            #                 (0, 0, 255),
+            #                 1,
+            #             )
+            #     cv2.putText(
+            #         vis,
+            #         f"Error: {mean_error:.2f}px",
+            #         (10, 30),
+            #         cv2.FONT_HERSHEY_SIMPLEX,
+            #         1,
+            #         (0, 255, 0),
+            #         2,
+            #     )
+            #     cv2.imshow("Chosen Combination", vis)
+            #     key = cv2.waitKey(0)
+            #     if key == ord("q"):
+            #         break
+            if mean_error < optimization_error_threshold:
                 break
 
-        if mean_error >= 5.0:
+        if mean_error >= optimization_error_threshold:
             rvec = tvec = None
+
+        if rvec is not None and tvec is not None:
+            self.debug.optimization_final_combination = combination
 
         return rvec, tvec
 
-    def calculate_screen_corners(
+    def calculate_plane_corners(
         self, rvec: npt.NDArray[np.float64], tvec: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.int32]:
-        screen_corners = np.array([
+    ) -> npt.NDArray[np.float64]:
+        plane_corners = np.array([
             [0, 0, 0],
             [28.5, 0, 0],
             [28.5, 19.6, 0],
             [0, 19.6, 0],
         ])
         img_corners, _ = cv2.projectPoints(
-            screen_corners,
+            plane_corners,
             rvec,
             tvec,
             self.camera_matrix,
             self.dist_coeffs,
         )
-        img_corners = img_corners.squeeze().astype(np.int32)
+        img_corners = img_corners.squeeze().astype(np.float64)
+        self.debug.plane_corners = img_corners
 
         return img_corners
 
     def __call__(self, image: npt.NDArray[np.uint8]):
+        self.debug = DebugData(self.params)
+        self.debug.img_raw = image.copy()
         # image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)
 
         if self.params.debug:
             self.vis = image.copy()
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image = 255 - image
+        self.debug.img_gray = image.copy()
 
         contours = self.get_contours(image)
-        if len(contours) < 4:
+        if len(contours) < self.params.min_contour_count:
             return None
 
         ellipses = self.fit_ellipses_to_contours(contours, image.shape[:2])
-        if len(ellipses) < 4:
+        if len(ellipses) < self.params.min_ellipse_count:
             return None
 
         feature_lines = self.find_feature_lines(ellipses)
-        if len(feature_lines) < 2:
+        if len(feature_lines) < self.params.min_feature_line_count:
             return None
 
         feature_lines = [FeatureLine(line) for line in feature_lines]
-
-        if self.params.debug:
-            vis = self.vis.copy()
-            for line in feature_lines:
-                line_points = np.array(
-                    [ellipse.center for ellipse in line.ellipses], dtype=np.int32
-                )
-                cv2.polylines(
-                    vis, [line_points], isClosed=False, color=(0, 255, 0), thickness=2
-                )
-                orientation = line.orientation.name
-                p = np.mean(line_points, axis=0).astype(int)
-                cv2.putText(
-                    vis,
-                    orientation,
-                    (int(p[0]), int(p[1])),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 0, 255),
-                    1,
-                )
-            cv2.imshow("Feature Lines - Orientation", vis)
-
-            vis = self.vis.copy()
-            for line in feature_lines:
-                for idx, p in enumerate(line.ellipses):
-                    cv2.circle(
-                        vis,
-                        (int(p.center[0]), int(p.center[1])),
-                        3,
-                        (255, 0, 0),
-                        -1,
-                    )
-
-                    cv2.putText(
-                        vis,
-                        f"{idx}",
-                        (int(p.center[0]), int(p.center[1] - 10)),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.3,
-                        (0, 255, 0),
-                        1,
-                    )
-
-            cv2.imshow("Feature Lines - Point Order", vis)
+        self.debug.feature_lines_processed = feature_lines
 
         combinations = self.get_possible_combinations(feature_lines)
 
@@ -988,7 +1180,7 @@ class IRPlaneTracker:
         if rvec is None or tvec is None:
             return None
 
-        screen_corners = self.calculate_screen_corners(rvec, tvec)
+        screen_corners = self.calculate_plane_corners(rvec, tvec)
 
         return screen_corners
 

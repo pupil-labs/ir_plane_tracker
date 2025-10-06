@@ -46,6 +46,7 @@ ignore = [
         "D107",
         # one-blank-line-before-class
         "D203",
+        "D205",
         # multi-line-summary-second-line
         "D213",
         # ends-in-period
