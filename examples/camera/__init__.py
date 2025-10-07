@@ -246,7 +246,7 @@ class HDDigitalCam(UVCBackend):
         super().__init__(spec)
         controls = {c.display_name: c for c in self._uvc_capture.controls}
         controls["Auto Exposure Mode"].value = 1
-        controls["Absolute Exposure Time"].value = 200
+        controls["Absolute Exposure Time"].value = 10
 
 
 class SceneCam(Camera):

@@ -1,8 +1,9 @@
+from pstats import Stats
 from time import time
 
 import cv2
-
 import pupil_labs.neon_recording as plr
+
 from pupil_labs.ir_plane_tracker import IRPlaneTracker, IRPlaneTrackerParams
 
 
@@ -57,6 +58,6 @@ if __name__ == "__main__":
 
     with cProfile.Profile() as pr:
         main()
-        pr.print_stats()
-
-    # main()
+    # pr.sort_stats("time").print_stats("ir_plane_tracker")
+    stats = Stats(pr).sort_stats("cumtime")
+    stats.print_stats(r"\((?!\_).*\)$")  # Exclude private and magic callables.

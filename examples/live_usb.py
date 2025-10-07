@@ -3,7 +3,7 @@ from time import time
 import cv2
 import numpy as np
 
-from pupil_labs.ir_plane_tracker import IRPlaneTracker, IRPlaneTrackerParams
+from pupil_labs.ir_plane_tracker.tracker2 import IRPlaneTracker, IRPlaneTrackerParams
 
 
 def main():
@@ -19,13 +19,14 @@ def main():
     # camera_matrix, dist_coeffs = cam.get_intrinsics()
     # params_json_path = "neon.json"
 
-    params = IRPlaneTrackerParams.from_json(params_json_path)
+    # params = IRPlaneTrackerParams.from_json(params_json_path)
+    params = IRPlaneTrackerParams()
 
     tracker = IRPlaneTracker(
         camera_matrix=camera_matrix, dist_coeffs=dist_coeffs, params=params
     )
 
-    frame_counter = 600
+    frame_counter = 1006
     deltas = []
     while True:
         frame = cam.get_frame()
