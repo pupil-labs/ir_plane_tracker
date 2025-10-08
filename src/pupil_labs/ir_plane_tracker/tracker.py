@@ -5,6 +5,7 @@ from functools import cached_property
 import cv2
 import numpy as np
 import numpy.typing as npt
+from scipy.spatial import distance_matrix
 
 
 class Ellipse:
@@ -423,6 +424,18 @@ class IRPlaneTrackerParams:
     optimization_error_threshold: float = 5.0
     debug: bool = False
 
+    def __post_init__(self):
+        self.thresh_half_kernel_size = int(
+            self.thresh_half_kernel_size * self.img_size_factor
+        )
+        self.min_contour_area = int(self.min_contour_area * (self.img_size_factor**2))
+        self.max_contour_area = int(self.max_contour_area * (self.img_size_factor**2))
+        self.min_ellipse_size = int(self.min_ellipse_size * self.img_size_factor)
+        self.max_line_length = self.max_line_length * self.img_size_factor
+        # self.optimization_error_threshold = (
+        #     self.optimization_error_threshold * self.img_size_factor
+        # )
+
     @staticmethod
     def from_json(json_path: str) -> "IRPlaneTrackerParams":
         import json
@@ -442,6 +455,7 @@ class IRPlaneTrackerParams:
             max_ellipse_aspect_ratio=data.get("max_ellipse_aspect_ratio", 2.0),
             min_ellipse_count=data.get("min_ellipse_count", 8),
             max_cr_error=data.get("max_cr_error", 0.03),
+            max_line_length=data.get("max_line_length", 200),
             min_feature_line_count=data.get("min_feature_line_count", 2),
             plane_width=data.get("total_width", 28.4),
             plane_height=data.get("total_height", 18.5),
@@ -463,7 +477,8 @@ class DebugData:
         self.img_gray: npt.NDArray[np.uint8] | None = None
         self._img_thresholded: npt.NDArray[np.uint8] | None = None
         self.contours_raw: list[npt.NDArray[np.int32]] | None = None
-        self.contour_areas: list[float] | None = None
+        self.contour_areas: npt.NDArray[np.float64] | None = None
+        self.contour_support_count: npt.NDArray[np.int32] | None = None
         self.contours_filtered: list[npt.NDArray[np.int32]] | None = None
         self.ellipses_raw: list[Ellipse] | None = None
         self.ellipses_filtered: list[Ellipse] | None = None
@@ -499,16 +514,32 @@ class DebugData:
         cv2.drawContours(vis, self.contours_raw, -1, (0, 0, 255), 2)
         cv2.drawContours(vis, self.contours_filtered, -1, (0, 255, 0), 2)
 
-        for c, a in zip(self.contours_raw, self.contour_areas, strict=False):
+        for c, s, a in zip(
+            self.contours_raw,
+            self.contour_support_count,
+            self.contour_areas,
+            strict=False,
+        ):
+            p = tuple(c[c[:, :, 1].argmin()][0])
             cv2.putText(
                 vis,
-                f"{a:.0f}",
-                tuple(c[c[:, :, 1].argmin()][0]),
+                f"{s}",
+                p,
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
-                (255, 0, 0),
+                (255, 255, 0),
                 1,
             )
+            if not np.isnan(a):
+                cv2.putText(
+                    vis,
+                    f"{a:.0f}",
+                    (p[0], p[1] + 15),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 0),
+                    1,
+                )
         cv2.putText(
             vis,
             f"Min Area: {self.params.min_contour_area}",
@@ -527,6 +558,15 @@ class DebugData:
             (255, 0, 0),
             2,
         )
+        cv2.putText(
+            vis,
+            f"Min Support: {self.params.min_contour_support}",
+            (50, 150),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 0),
+            2,
+        )
         cv2.imshow("Contours", vis)
 
     def _visualize_ellipses(self):
@@ -542,6 +582,7 @@ class DebugData:
                     vis,
                     (
                         f"{ellipse.minor_axis:.1f} "
+                        f"{ellipse.major_axis:.1f} "
                         f"{ellipse.major_axis / ellipse.minor_axis:.1f}"
                     ),
                     (center[0] - 10, center[1] - 10),
@@ -580,6 +621,12 @@ class DebugData:
 
     def _visualize_feature_lines(self):
         vis = self.img_thresholded.copy()
+
+        cv2.circle(vis, (200, 200), int(self.params.max_line_length), (255, 0, 0), 2)
+        cv2.circle(
+            vis, (200, 200), int(self.params.max_line_length * 0.6), (255, 0, 0), 2
+        )
+
         if self.feature_lines_raw is not None and self.cr_values is not None:
             for line, cr in zip(self.feature_lines_raw, self.cr_values, strict=False):
                 line_points = np.array(
@@ -780,7 +827,11 @@ class IRPlaneTracker:
     def get_contours(self, img: np.ndarray) -> list[np.ndarray]:
         img = 255 - img
 
-        thresh_kernel_size = self.params.thresh_half_kernel_size * 2 + 1
+        thresh_kernel_size = (
+            int(self.params.thresh_half_kernel_size * self.params.img_size_factor) * 2
+            + 1
+        )
+
         img = cv2.adaptiveThreshold(
             img,
             255,
@@ -794,16 +845,23 @@ class IRPlaneTracker:
         contours, _ = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
         self.debug.contours_raw = contours
 
-        contour_areas = [cv2.contourArea(c) for c in contours]
+        contour_support_counts = np.array([len(c) for c in contours])
+        self.debug.contour_support_count = contour_support_counts
+
+        contour_support_mask = contour_support_counts >= self.params.min_contour_support
+
+        contour_areas = np.array([
+            cv2.contourArea(c) if s else np.nan
+            for c, s in zip(contours, contour_support_mask, strict=True)
+        ])
         self.debug.contour_areas = contour_areas
-        # filter contours by area
-        contours = [
-            c
-            for c, a in zip(contours, contour_areas, strict=False)
-            if a > self.params.min_contour_area
-            and a < self.params.max_contour_area
-            and len(c) >= self.params.min_contour_support
-        ]
+
+        contour_areas_mask = (contour_areas > self.params.min_contour_area) & (
+            contour_areas < self.params.max_contour_area
+        )
+
+        contours = [c for c, a in zip(contours, contour_areas_mask, strict=True) if a]
+
         self.debug.contours_filtered = contours
 
         return contours
@@ -863,9 +921,10 @@ class IRPlaneTracker:
 
             if add_ellipse:
                 ellipses_deduplicated.append(ellipse)
-        self.debug.ellipses_filtered = ellipses_deduplicated
 
-        return ellipses
+        self.debug.ellipses_filtered = ellipses_filtered
+
+        return ellipses_deduplicated
 
     @staticmethod
     def cross_ratio(line: list[Ellipse]) -> float:
@@ -880,12 +939,16 @@ class IRPlaneTracker:
         max_line_length = self.params.max_line_length
         max_point_inter_distance = max_line_length * 0.6
 
+        ellipse_centers = np.array(
+            [ellipse.center for ellipse in ellipses], dtype=np.float32
+        )
+        distances = distance_matrix(ellipse_centers, ellipse_centers)
+
         feature_lines = []
         for i, ellipse_i in enumerate(ellipses):
             for j, ellipse_j in enumerate(ellipses[i + 1 :], start=i + 1):
                 # Check point distance
-                vec_IJ = ellipse_j.center - ellipse_i.center
-                dist_IJ = np.linalg.norm(vec_IJ)
+                dist_IJ = distances[i, j]
                 if dist_IJ > max_line_length:
                     continue
 
@@ -915,8 +978,7 @@ class IRPlaneTracker:
                         continue
 
                     # Check point distance
-                    vec_IK = ellipse_k.center - ellipse_i.center
-                    dist_IK = np.linalg.norm(vec_IK)
+                    dist_IK = distances[i, k]
                     if dist_IK > max_point_inter_distance:
                         continue
 
@@ -931,6 +993,7 @@ class IRPlaneTracker:
                         continue
 
                     # Check if k lies on the line between i and j
+                    vec_IK = ellipse_k.center - ellipse_i.center
                     t_k = np.dot(vec_IK, vec_IJ) / dot_IJ_IJ
                     if t_k < 0 or t_k > 1:
                         continue
@@ -952,9 +1015,8 @@ class IRPlaneTracker:
                             continue
 
                         # Check point distance
-                        vec_IL = ellipse_m.center - ellipse_i.center
-                        dist_IL = np.linalg.norm(vec_IL)
-                        if dist_IL > max_point_inter_distance:
+                        dist_IM = distances[i, m]
+                        if dist_IM > max_point_inter_distance:
                             continue
 
                         # Check area
@@ -968,6 +1030,8 @@ class IRPlaneTracker:
                             continue
 
                         # Check if l lies on the line between i and j
+                        vec_IL = ellipse_m.center - ellipse_i.center
+
                         t_m = np.dot(vec_IL, vec_IJ) / dot_IJ_IJ
                         if t_m < 0 or t_m > 1:
                             continue
