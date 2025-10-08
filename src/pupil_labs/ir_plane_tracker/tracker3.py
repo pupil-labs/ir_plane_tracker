@@ -1,3 +1,4 @@
+import itertools
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
@@ -5,6 +6,29 @@ from functools import cached_property
 import cv2
 import numpy as np
 import numpy.typing as npt
+
+
+class Ellipse:
+    def __init__(
+        self,
+        center: tuple[float, float],
+        size: tuple[float, float],
+        angle: float,
+    ):
+        self.center = np.array(center)
+        self.size = np.array(size)
+        self.angle = angle
+
+    def __repr__(self):
+        return f"Ellipse(center={self.center}, size={self.size}, angle={self.angle})"
+
+    @cached_property
+    def major_axis(self) -> float:
+        return max(self.size)
+
+    @cached_property
+    def minor_axis(self) -> float:
+        return min(self.size)
 
 
 @dataclass
@@ -43,12 +67,15 @@ def line_projection_error(
     return res
 
 
-def project_to_line(params: LineParams, point: np.ndarray) -> tuple[float, np.ndarray]:
+def project_to_line(
+    params: LineParams, points: np.ndarray
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     line_origin = np.array([params.x0, params.y0])
     line_dir = np.array([params.vx, params.vy])
-    vec = point - line_origin
-    t = np.dot(vec, line_dir)
-    return t
+    vecs = points - line_origin
+    t = np.dot(vecs, line_dir)
+    projections = line_origin + np.outer(t, line_dir)
+    return t, projections
 
 
 class Fragment:
@@ -460,15 +487,20 @@ class IRPlaneTrackerParams:
         default_factory=lambda: np.array([0.0, 6.0, 8.0, 10.0])
     )
     img_size_factor: float = 1.0
-    thresh_c: int = 75
+    thresh_c: int = 40
     thresh_half_kernel_size: int = 20
-    min_contour_area: int = 50
-    max_contour_area: int = 500
+    min_contour_area_line: int = 200
+    max_contour_area_line: int = 850
+    min_contour_area_ellipse: int = 24
+    max_contour_area_ellipse: int = 180
     min_contour_count: int = 8
     min_contour_support: int = 6
     fragments_max_projection_error: float = 5.0
     min_line_fragments_count: int = 8
-    max_cr_error: float = 0.05  # 0.03
+    min_ellipse_size: int = 6
+    max_ellipse_aspect_ratio: float = 2.0
+    min_ellipse_count: int = 8
+    max_cr_error: float = 0.03
     min_feature_line_count: int = 2
     max_line_length: float = 200.0
     optimization_error_threshold: float = 5.0
@@ -513,9 +545,12 @@ class DebugData:
         self._img_thresholded: npt.NDArray[np.uint8] | None = None
         self.contours_raw: list[npt.NDArray[np.int32]] | None = None
         self.contour_areas: list[float] | None = None
-        self.contours_filtered: list[npt.NDArray[np.int32]] | None = None
+        self.contours_line: list[npt.NDArray[np.int32]] | None = None
+        self.contours_ellipse: list[npt.NDArray[np.int32]] | None = None
         self.fragments_raw: list[Fragment] | None = None
         self.fragments_filtered: list[Fragment] | None = None
+        self.ellipses_raw: list[Ellipse] | None = None
+        self.ellipses_filtered: list[Ellipse] | None = None
         self.feature_lines_raw: list[FeatureLine] | None = None
         self.feature_lines_filtered: list[FeatureLine] | None = None
         self.feature_lines_processed: list[FeatureLine] | None = None
@@ -538,6 +573,7 @@ class DebugData:
 
         self._visualize_contours()
         self._visualize_fragments()
+        self._visualize_ellipses()
         self._visualize_feature_lines()
         self._visualize_feature_lines_processed()
         self._visualize_optimization()
@@ -546,7 +582,8 @@ class DebugData:
     def _visualize_contours(self):
         vis = self.img_thresholded.copy()
         cv2.drawContours(vis, self.contours_raw, -1, (0, 0, 255), 2)
-        cv2.drawContours(vis, self.contours_filtered, -1, (0, 255, 0), 2)
+        cv2.drawContours(vis, self.contours_line, -1, (0, 255, 0), 2)
+        cv2.drawContours(vis, self.contours_ellipse, -1, (255, 0, 0), 2)
 
         for c, a in zip(self.contours_raw, self.contour_areas, strict=False):
             cv2.putText(
@@ -560,19 +597,55 @@ class DebugData:
             )
         cv2.putText(
             vis,
-            f"Min Area: {self.params.min_contour_area}",
+            "Line",
+            (50, 25),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 255, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Min Area: {self.params.min_contour_area_line}",
             (50, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1,
+            0.5,
+            (0, 255, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Max Area: {self.params.max_contour_area_line}",
+            (50, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 255, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            "Ellipse",
+            (300, 25),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
             (255, 0, 0),
             2,
         )
         cv2.putText(
             vis,
-            f"Max Area: {self.params.max_contour_area}",
-            (50, 100),
+            f"Min Area: {self.params.min_contour_area_ellipse}",
+            (300, 50),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1,
+            0.5,
+            (255, 0, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Max Area: {self.params.max_contour_area_ellipse}",
+            (300, 75),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
             (255, 0, 0),
             2,
         )
@@ -634,6 +707,55 @@ class DebugData:
             2,
         )
         cv2.imshow("Fragements", vis)
+
+    def _visualize_ellipses(self):
+        vis = self.img_thresholded.copy()
+        if self.ellipses_raw is not None:
+            for ellipse in self.ellipses_raw:
+                center = (int(ellipse.center[0]), int(ellipse.center[1]))
+                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
+                angle = ellipse.angle
+                cv2.ellipse(vis, center, size, angle, 0, 360, (0, 0, 255), 2)
+
+                cv2.putText(
+                    vis,
+                    (
+                        f"{ellipse.minor_axis:.1f} "
+                        f"{ellipse.major_axis / ellipse.minor_axis:.1f}"
+                    ),
+                    (center[0] - 10, center[1] - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.3,
+                    (255, 0, 0),
+                    1,
+                )
+
+        if self.ellipses_filtered is not None:
+            for ellipse in self.ellipses_filtered:
+                center = (int(ellipse.center[0]), int(ellipse.center[1]))
+                size = (int(ellipse.size[0] / 2), int(ellipse.size[1] / 2))
+                angle = ellipse.angle
+                cv2.ellipse(vis, center, size, angle, 0, 360, (0, 255, 0), 2)
+
+        cv2.putText(
+            vis,
+            f"Min Size: {self.params.min_ellipse_size}",
+            (50, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.putText(
+            vis,
+            f"Max Aspect Ratio: {self.params.max_ellipse_aspect_ratio}",
+            (50, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            2,
+        )
+        cv2.imshow("Ellipses", vis)
 
     def _visualize_feature_lines(self):
         vis = self.img_thresholded.copy()
@@ -846,7 +968,9 @@ class IRPlaneTracker:
     #     }
     #     return obj_map
 
-    def get_contours(self, img: np.ndarray) -> list[np.ndarray]:
+    def get_contours(
+        self, img: np.ndarray
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         img = 255 - img
 
         thresh_kernel_size = self.params.thresh_half_kernel_size * 2 + 1
@@ -858,7 +982,7 @@ class IRPlaneTracker:
             thresh_kernel_size,
             self.params.thresh_c,
         )
-        img = cv2.morphologyEx(img, cv2.MORPH_DILATE, np.ones((1, 1), np.uint8))
+        # img = cv2.morphologyEx(img, cv2.MORPH_DILATE, np.ones((1, 1), np.uint8))
         self.debug.img_thresholded = img.copy()
 
         contours, _ = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -866,16 +990,25 @@ class IRPlaneTracker:
 
         contour_areas = [cv2.contourArea(c) for c in contours]
         self.debug.contour_areas = contour_areas
-        contours = [
+        line_contours = [
             c
             for c, a in zip(contours, contour_areas, strict=False)
-            if a > self.params.min_contour_area
-            and a < self.params.max_contour_area
+            if a > self.params.min_contour_area_line
+            and a < self.params.max_contour_area_line
             and len(c) >= self.params.min_contour_support
         ]
-        self.debug.contours_filtered = contours
+        ellipse_contours = [
+            c
+            for c, a in zip(contours, contour_areas, strict=False)
+            if a > self.params.min_contour_area_ellipse
+            and a < self.params.max_contour_area_ellipse
+            and len(c) >= self.params.min_contour_support
+        ]
 
-        return contours
+        self.debug.contours_line = line_contours
+        self.debug.contours_ellipse = ellipse_contours
+
+        return line_contours, ellipse_contours
 
     def fit_line_fragments(self, contours: list[np.ndarray]) -> list[Fragment]:
         fragments = [Fragment(c) for c in contours]
@@ -888,6 +1021,65 @@ class IRPlaneTracker:
         self.debug.fragments_filtered = fragments.copy()
 
         return fragments
+
+    def fit_ellipses_to_contours(  # noqa: C901
+        self, contours: list[np.ndarray], img_shape: tuple[int, int]
+    ) -> list[Ellipse]:
+        # ------------ Ellipse extraction --------------------------------------
+
+        ellipses = []
+        for contour in contours:
+            points = contour.astype(np.float32)
+            ellipse = cv2.fitEllipse(points)
+            ellipse = Ellipse(*ellipse)  # type: ignore
+            ellipses.append(ellipse)
+
+        self.debug.ellipses_raw = ellipses
+
+        ellipses_filtered = []
+        for ellipse in ellipses:
+            if (
+                ellipse.major_axis
+                > ellipse.minor_axis * self.params.max_ellipse_aspect_ratio
+            ):
+                continue
+            if ellipse.minor_axis > min(img_shape[0], img_shape[1]) * 0.2:
+                continue
+            if ellipse.minor_axis < 0.5 * self.params.min_ellipse_size:
+                continue
+            if ellipse.major_axis < self.params.min_ellipse_size:
+                continue
+            if (
+                ellipse.center[0] < 0
+                or ellipse.center[0] >= img_shape[1]
+                or ellipse.center[1] < 0
+                or ellipse.center[1] >= img_shape[0]
+            ):
+                continue
+
+            ellipses_filtered.append(ellipse)
+
+        ellipses_deduplicated = []
+        for idx, ellipse in enumerate(ellipses_filtered):
+            # Check for double borders on circles and keep only larger ones
+            add_ellipse = True
+            for i in range(idx, len(ellipses_filtered)):
+                dist_thresh = ellipse.minor_axis * 0.1
+                dist = abs(ellipse.center[0] - ellipses_filtered[i].center[0]) + abs(
+                    ellipse.center[1] - ellipses_filtered[i].center[1]
+                )
+                if (
+                    dist < dist_thresh
+                    and ellipse.minor_axis < ellipses_filtered[i].minor_axis
+                ):
+                    add_ellipse = False
+                    break
+
+            if add_ellipse:
+                ellipses_deduplicated.append(ellipse)
+        self.debug.ellipses_filtered = ellipses_deduplicated
+
+        return ellipses
 
     @staticmethod
     def cross_ratio(points) -> float:
@@ -902,93 +1094,54 @@ class IRPlaneTracker:
         cross_ratio = (AB / BD) / (AC / CD)
         return float(cross_ratio)
 
-    def find_feature_lines(self, fragments: list[Fragment]) -> list[FeatureLine]:
-        unused_fragments = set(fragments)
+    def find_feature_lines(
+        self, fragments: list[Fragment], ellipses: list[Ellipse]
+    ) -> list[FeatureLine]:
+        if len(ellipses) < 2 or len(fragments) < 1:
+            return []
 
+        ellipse_points = np.array([e.center for e in ellipses])
         feature_lines = []
         cr_values = []
+        for frag in fragments:
+            t, line_points = project_to_line(frag.params, ellipse_points)
+            distance = np.linalg.norm(line_points - ellipse_points, axis=1)
+            mask = distance < self.params.fragments_max_projection_error
 
-        while len(unused_fragments) >= 2:
-            frag1 = unused_fragments.pop()
-            feature_line_candidate = [frag1]
-            for frag2 in list(unused_fragments):
-                error = line_projection_error(
-                    np.array([frag2.start_pt, frag2.end_pt]), frag1.params
-                )
-                if error < self.params.fragments_max_projection_error:
-                    feature_line_candidate.append(frag2)
-                    unused_fragments.remove(frag2)
+            ellipse_candidates = ellipse_points[mask]
+            t_candidates = t[mask]
+            line_points = line_points[mask]
 
-            if len(feature_line_candidate) < 2:
-                continue
+            frag_t, _ = project_to_line(
+                frag.params, np.array([frag.start_pt, frag.end_pt])
+            )
+            for i, j in itertools.combinations(np.arange(len(ellipse_candidates)), 2):
+                # Both ellipses must be on the same side of the fragment
+                if t_candidates[i] < frag_t[1] and t_candidates[j] > frag_t[1]:
+                    continue
 
-            projections = np.array([
-                project_to_line(frag1.params, np.array(frag.start_pt))
-                for frag in feature_line_candidate
-            ])
-            ordered_indices = np.argsort(projections)
-            feature_line_candidate = np.array(feature_line_candidate)[ordered_indices]
-
-            frag_i = 0
-            while frag_i < len(feature_line_candidate) - 1:
-                frag1 = feature_line_candidate[frag_i]
-                frag2 = feature_line_candidate[frag_i + 1]
-                line12 = Fragment(np.vstack([frag1.support, frag2.support]))
-
-                points = np.array([
-                    frag1.start_pt,
-                    frag1.end_pt,
-                    frag2.start_pt,
-                    frag2.end_pt,
+                t_values = np.array([
+                    frag_t[0],
+                    frag_t[1],
+                    t_candidates[i],
+                    t_candidates[j],
                 ])
-                projections = np.array([
-                    project_to_line(line12.params, p) for p in points
-                ])
-                projections = np.sort(projections)
+                ordered_indices = np.argsort(t_values)
+                t_values = t_values[ordered_indices]
 
-                # ordered_indices = np.argsort(projections)
-                # points = points[ordered_indices]
-                cr = self.cross_ratio(projections)
-
-                # vis = self.debug.img_raw.copy()
-                # all_points = np.vstack(
-                #     [f.start_pt for f in feature_line_candidate]
-                #     + [f.end_pt for f in feature_line_candidate]
-                # )
-                # for p in all_points:
-                #     cv2.circle(vis, (int(p[0]), int(p[1])), 1, (0, 0, 255), -1)
-
-                # for i, p in enumerate(points):
-                #     cv2.circle(vis, (int(p[0]), int(p[1])), 1, (0, 255, 0), -1)
-                #     cv2.putText(
-                #         vis,
-                #         f"{i}",
-                #         (int(p[0]), int(p[1])),
-                #         cv2.FONT_HERSHEY_SIMPLEX,
-                #         0.5,
-                #         (255, 0, 0),
-                #         1,
-                #     )
-                # cv2.putText(
-                #     vis,
-                #     f"CR: {cr:.3f}",
-                #     (50, 50),
-                #     cv2.FONT_HERSHEY_SIMPLEX,
-                #     1,
-                #     (255, 0, 0),
-                #     2,
-                # )
-                # cv2.imshow("CR Debug", vis)
-                # cv2.imshow("Raw image", self.debug.img_raw)
-                # cv2.imshow("Thresholded", self.debug.img_thresholded)
-                # cv2.waitKey(0)
-
-                target_cr = 0.0625
+                cr = self.cross_ratio(t_values)
+                target_cr = 0.375
                 if abs(cr - target_cr) < self.params.max_cr_error:
-                    feature_lines.append(FeatureLine(points, projections))
+                    feature_line_points = np.array([
+                        frag.start_pt,
+                        frag.end_pt,
+                        ellipse_candidates[i],
+                        ellipse_candidates[j],
+                    ])
+                    feature_line_points = feature_line_points[ordered_indices]
+                    feature_lines.append(FeatureLine(feature_line_points, t_values))
                     cr_values.append(cr)
 
-                frag_i += 1
         self.debug.feature_lines_raw = feature_lines
         self.debug.cr_values = cr_values
         return feature_lines
@@ -1274,15 +1427,19 @@ class IRPlaneTracker:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         self.debug.img_gray = image.copy()
 
-        contours = self.get_contours(image)
+        line_contours, ellipse_contours = self.get_contours(image)
         # if len(contours) < self.params.min_contour_count:
         #     return None
 
-        line_fragments = self.fit_line_fragments(contours)
+        fragments = self.fit_line_fragments(line_contours)
         # if len(line_fragments) < self.params.min_line_fragments_count:
         #     return None
 
-        feature_lines = self.find_feature_lines(line_fragments)
+        ellipses = self.fit_ellipses_to_contours(ellipse_contours, image.shape[:2])
+        # if len(ellipses) < self.params.min_ellipse_count:
+        #     return None
+
+        feature_lines = self.find_feature_lines(fragments, ellipses)
         # if len(feature_lines) < self.params.min_feature_line_count:
         #     return None
 

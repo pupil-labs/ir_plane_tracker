@@ -3,7 +3,7 @@ from time import time
 import cv2
 import numpy as np
 
-from pupil_labs.ir_plane_tracker.tracker2 import IRPlaneTracker, IRPlaneTrackerParams
+from pupil_labs.ir_plane_tracker.tracker3 import IRPlaneTracker, IRPlaneTrackerParams
 
 
 def main():
@@ -12,7 +12,7 @@ def main():
     cam = HDDigitalCam()
     camera_matrix = np.load("camera_matrix.npy")
     dist_coeffs = np.load("dist_coeffs.npy")
-    params_json_path = "hddigital.json"
+    # params_json_path = "hddigital.json"
 
     # from camera import SceneCam
     # cam = SceneCam()
