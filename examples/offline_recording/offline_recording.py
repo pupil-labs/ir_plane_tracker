@@ -2,13 +2,13 @@ from pstats import Stats
 from time import time
 
 import cv2
-import pupil_labs.neon_recording as plr
 
-from pupil_labs.ir_plane_tracker import IRPlaneTracker, IRPlaneTrackerParams
+import pupil_labs.neon_recording as plr
+from pupil_labs.ir_plane_tracker import TrackerLineAndDots, TrackerLineAndDotsParams
 
 
 def main():
-    rec = plr.open("offline_recording/data/outdoor_hard")
+    rec = plr.open("offline_recording/data/indoor")
 
     calibration = rec.calibration
     assert calibration is not None
@@ -17,16 +17,16 @@ def main():
 
     params_json_path = "neon.json"
 
-    params = IRPlaneTrackerParams.from_json(params_json_path)
-    params.debug = True
-    params.thresh_c = 35
-    params.thresh_half_kernel_size = 70
-    params.max_line_length = 500.0
-    params.img_size_factor = 2.5
-    params.optimization_error_threshold = 8.0
+    params = TrackerLineAndDotsParams.from_json(params_json_path)
+    # params.debug = True
+    # params.thresh_c = 35
+    # params.thresh_half_kernel_size = 70
+    # params.max_line_length = 500.0
+    # params.img_size_factor = 2.5
+    # params.optimization_error_threshold = 8.0
 
-    tracker = IRPlaneTracker(
-        camera_matrix=camera_matrix, dist_coeffs=dist_coeffs, params=params
+    tracker = TrackerLineAndDots(
+        camera_matrix=camera_matrix, dist_coeffs=None, params=params
     )
 
     deltas = []
@@ -48,9 +48,14 @@ def main():
         fps = 1.0 / avg_delta
         print(f"FPS: {fps:.2f}", end="\r")
         tracker.debug.visualize()
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(0)
         if key == ord("q"):
             break
+        elif key == ord("s"):
+            cv2.imwrite(
+                "/home/marc/pupil_labs/IR_plane_tracker/src/pupil_labs/ir_plane_tracker/data/dashed_images/test_img.png",
+                img,
+            )
 
 
 if __name__ == "__main__":

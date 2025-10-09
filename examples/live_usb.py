@@ -1,28 +1,29 @@
 from time import time
 
 import cv2
-import numpy as np
 
-from pupil_labs.ir_plane_tracker.tracker3 import IRPlaneTracker, IRPlaneTrackerParams
+from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
+    TrackerLineAndDots,
+    TrackerLineAndDotsParams,
+)
 
 
 def main():
-    from camera import HDDigitalCam
-
-    cam = HDDigitalCam()
-    camera_matrix = np.load("camera_matrix.npy")
-    dist_coeffs = np.load("dist_coeffs.npy")
+    # cam = HDDigitalCam()
+    # camera_matrix = np.load("camera_matrix.npy")
+    # dist_coeffs = np.load("dist_coeffs.npy")
     # params_json_path = "hddigital.json"
+    from camera import SceneCam
 
-    # from camera import SceneCam
-    # cam = SceneCam()
-    # camera_matrix, dist_coeffs = cam.get_intrinsics()
-    # params_json_path = "neon.json"
+    cam = SceneCam()
+    cam.exposure = 400  # in ms
+    camera_matrix, dist_coeffs = cam.get_intrinsics()
+    params_json_path = "neon.json"
 
-    # params = IRPlaneTrackerParams.from_json(params_json_path)
-    params = IRPlaneTrackerParams()
+    params = TrackerLineAndDotsParams.from_json(params_json_path)
+    # params = TrackerLineAndDotsParams()
 
-    tracker = IRPlaneTracker(
+    tracker = TrackerLineAndDots(
         camera_matrix=camera_matrix, dist_coeffs=dist_coeffs, params=params
     )
 
@@ -50,7 +51,7 @@ def main():
         print(f"FPS: {fps:.2f}", end="\r")
 
         tracker.debug.visualize()
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(0)
 
         if key == ord("q"):
             break

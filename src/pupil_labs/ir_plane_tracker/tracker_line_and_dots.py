@@ -420,27 +420,14 @@ class TrackerLineAndDotsParams:
         with open(json_path) as f:
             data = json.load(f)
 
-        params = TrackerLineAndDotsParams(
-            img_size_factor=data.get("img_size_factor", 1.0),
-            thresh_c=data.get("thresh_c", 75),
-            thresh_half_kernel_size=data.get("thresh_half_kernel_size", 20),
-            min_contour_area=data.get("min_contour_area", 20),
-            max_contour_area=data.get("max_contour_area", 120),
-            min_contour_count=data.get("min_contour_count", 8),
-            min_contour_support=data.get("min_contour_support", 6),
-            min_line_fragments_count=data.get("min_ellipse_count", 8),
-            max_cr_error=data.get("max_cr_error", 0.03),
-            min_feature_line_count=data.get("min_feature_line_count", 2),
-            plane_width=data.get("total_width", 28.4),
-            plane_height=data.get("total_height", 18.5),
-            top_left_margin=data.get("top_left_margin", 1.57),
-            top_right_margin=data.get("top_right_margin", 2.1),
-            bottom_left_margin=data.get("bottom_left_margin", 1.55),
-            bottom_right_margin=data.get("bottom_right_margin", 1.4),
-            right_top_margin=data.get("right_top_margin", 4.6),
-            left_top_margin=data.get("left_top_margin", 4.33),
-            norm_line_points=np.array(data.get("norm_line_points", [0, 6, 8, 10])),
-        )
+        params = TrackerLineAndDotsParams()
+        for key, value in data.items():
+            if hasattr(params, key):
+                if key == "norm_line_points":
+                    value = np.array(value)
+                setattr(params, key, value)
+            else:
+                raise KeyError(f"Unknown parameter: {key}")
         return params
 
 
@@ -1109,86 +1096,87 @@ class TrackerLineAndDots:
 
             mean_error = self.reprojection_error(obj_points, img_points, rvec, tvec)
 
-            # vis = self.debug.img_raw.copy()
-            # for i, p in enumerate(img_points):
-            #     cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 0, 255), -1)
-            #     cv2.putText(
-            #         vis,
-            #         f"{i}",
-            #         (int(p[0]), int(p[1])),
-            #         cv2.FONT_HERSHEY_SIMPLEX,
-            #         0.5,
-            #         (255, 0, 0),
-            #         1,
-            #     )
-            # cv2.putText(
-            #     vis,
-            #     f"Error: {mean_error:.2f}",
-            #     (50, 50),
-            #     cv2.FONT_HERSHEY_SIMPLEX,
-            #     1,
-            #     (0, 0, 255),
-            #     2,
-            # )
-            # cv2.imshow("Reprojection", vis)
-
-            # vis = np.zeros(
-            #     (
-            #         int(self.params.plane_height * 10) + 20,
-            #         int(self.params.plane_width * 10) + 20,
-            #         3,
-            #     ),
-            #     dtype=np.uint8,
-            # )
-            # for i, p in enumerate(obj_points):
-            #     p = p * 10
-            #     p += 10
-            #     cv2.circle(
-            #         vis,
-            #         (int(p[0]), int(p[1])),
-            #         5,
-            #         (0, 0, 255),
-            #         -1,
-            #     )
-            #     cv2.putText(
-            #         vis,
-            #         f"{i}",
-            #         (int(p[0]), int(p[1])),
-            #         cv2.FONT_HERSHEY_SIMPLEX,
-            #         0.5,
-            #         (255, 0, 0),
-            #         1,
-            #     )
-            # cv2.imshow("Object Points", vis)
-
-            # reprojected_points, _ = cv2.projectPoints(
-            #     obj_points,
-            #     rvec,
-            #     tvec,
-            #     self.camera_matrix,
-            #     self.dist_coeffs,
-            # )
-            # reprojected_points = reprojected_points.squeeze()
-            # vis = self.debug.img_raw.copy()
-            # for i, p in enumerate(reprojected_points):
-            #     cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 255, 0), -1)
-            #     cv2.putText(
-            #         vis,
-            #         f"{i}",
-            #         (int(p[0]), int(p[1])),
-            #         cv2.FONT_HERSHEY_SIMPLEX,
-            #         0.5,
-            #         (255, 0, 0),
-            #         1,
-            #     )
-            # cv2.imshow("Reprojected Points", vis)
-
             # cv2.waitKey(0)
 
             self.debug.optimization_errors.append(mean_error)
 
             if mean_error < self.params.optimization_error_threshold:
                 break
+
+        if self.params.debug:
+            vis = self.debug.img_raw.copy()
+            for i, p in enumerate(img_points):
+                cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 0, 255), -1)
+                cv2.putText(
+                    vis,
+                    f"{i}",
+                    (int(p[0]), int(p[1])),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 0),
+                    1,
+                )
+            cv2.putText(
+                vis,
+                f"Error: {mean_error:.2f}",
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+            )
+            cv2.imshow("Img Points", vis)
+
+            vis = np.zeros(
+                (
+                    int(self.params.plane_height * 10) + 20,
+                    int(self.params.plane_width * 10) + 20,
+                    3,
+                ),
+                dtype=np.uint8,
+            )
+            for i, p in enumerate(obj_points):
+                p = p * 10
+                p += 10
+                cv2.circle(
+                    vis,
+                    (int(p[0]), int(p[1])),
+                    5,
+                    (0, 0, 255),
+                    -1,
+                )
+                cv2.putText(
+                    vis,
+                    f"{i}",
+                    (int(p[0]), int(p[1])),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 0),
+                    1,
+                )
+            cv2.imshow("Object Points", vis)
+
+            reprojected_points, _ = cv2.projectPoints(
+                obj_points,
+                rvec,
+                tvec,
+                self.camera_matrix,
+                self.dist_coeffs,
+            )
+            reprojected_points = reprojected_points.squeeze()
+            vis = self.debug.img_raw.copy()
+            for i, p in enumerate(reprojected_points):
+                cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 255, 0), -1)
+                cv2.putText(
+                    vis,
+                    f"{i}",
+                    (int(p[0]), int(p[1])),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 0, 0),
+                    1,
+                )
+            cv2.imshow("Reprojected Points", vis)
 
         if mean_error >= self.params.optimization_error_threshold:
             rvec = tvec = None
