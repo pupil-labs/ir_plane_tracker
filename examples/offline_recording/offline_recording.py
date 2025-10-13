@@ -8,7 +8,7 @@ from pupil_labs.ir_plane_tracker import TrackerLineAndDots, TrackerLineAndDotsPa
 
 
 def main():
-    rec = plr.open("offline_recording/data/indoor")
+    rec = plr.open("offline_recording/data/indoor3")
 
     calibration = rec.calibration
     assert calibration is not None
@@ -18,27 +18,23 @@ def main():
     params_json_path = "neon.json"
 
     params = TrackerLineAndDotsParams.from_json(params_json_path)
-    # params.debug = True
-    # params.thresh_c = 35
-    # params.thresh_half_kernel_size = 70
-    # params.max_line_length = 500.0
-    # params.img_size_factor = 2.5
-    # params.optimization_error_threshold = 8.0
 
     tracker = TrackerLineAndDots(
         camera_matrix=camera_matrix, dist_coeffs=None, params=params
     )
+    screenshot = cv2.imread("offline_recording/data/screenshot.png")
 
     deltas = []
-    for frame in rec.scene:
+    rec_data = zip(
+        rec.scene.sample(rec.scene.ts), rec.gaze.sample(rec.scene.ts), strict=False
+    )
+    for frame, gaze in rec_data:
         img = frame.bgr
 
         img = cv2.undistort(img, camera_matrix, dist_coeffs)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
         start_ts = time()
-        screen_corners = tracker(img)  # noqa: F841
+        localization = tracker(img)
         end_ts = time()
         delta = end_ts - start_ts
         deltas.append(delta)
@@ -47,7 +43,28 @@ def main():
         avg_delta = sum(deltas) / len(deltas)
         fps = 1.0 / avg_delta
         print(f"FPS: {fps:.2f}", end="\r")
+
         tracker.debug.visualize()
+
+        cv2.circle(img, (int(gaze.x), int(gaze.y)), 20, (0, 255, 0), 3)
+
+        screen_vis = screenshot.copy()
+        if localization is not None:
+            gaze_mapped = localization.img2plane @ [gaze.x, gaze.y, 1]
+            gaze_mapped = gaze_mapped / gaze_mapped[2]
+            gaze_mapped = gaze_mapped[:2] * screenshot.shape[1::-1]
+            cv2.circle(
+                screen_vis,
+                (int(gaze_mapped[0]), int(gaze_mapped[1])),
+                40,
+                (0, 255, 0),
+                3,
+            )
+
+        screen_vis = cv2.resize(screen_vis, (0, 0), fx=0.5, fy=0.5)
+        cv2.imshow("Scene Camera", img)
+        cv2.imshow("Mapped Gaze", screen_vis)
+
         key = cv2.waitKey(0)
         if key == ord("q"):
             break

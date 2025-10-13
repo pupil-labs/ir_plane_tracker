@@ -16,15 +16,13 @@ def main():
     from camera import SceneCam
 
     cam = SceneCam()
-    cam.exposure = 400  # in ms
     camera_matrix, dist_coeffs = cam.get_intrinsics()
     params_json_path = "neon.json"
 
     params = TrackerLineAndDotsParams.from_json(params_json_path)
-    # params = TrackerLineAndDotsParams()
 
     tracker = TrackerLineAndDots(
-        camera_matrix=camera_matrix, dist_coeffs=dist_coeffs, params=params
+        camera_matrix=camera_matrix, dist_coeffs=None, params=params
     )
 
     frame_counter = 1006
@@ -34,9 +32,6 @@ def main():
 
         img = frame.bgr
         img = cv2.undistort(img, camera_matrix, dist_coeffs)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
         cv2.imshow("Raw Image", img)
 
         start_ts = time()
