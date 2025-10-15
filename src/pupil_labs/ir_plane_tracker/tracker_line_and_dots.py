@@ -765,6 +765,21 @@ class DebugData:
                 (0, 0, 255),
                 2,
             )
+        else:
+            best_error = (
+                np.min(self.optimization_errors)
+                if len(self.optimization_errors) > 0
+                else np.inf
+            )
+            cv2.putText(
+                vis,
+                f"No valid combination found! Best Error: {best_error:.2f}",
+                (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2,
+            )
         cv2.imshow("Optimization Result", vis)
 
     def _visualize_plane(self):
@@ -869,7 +884,8 @@ class TrackerLineAndDots:
             thresh_kernel_size,
             self.params.thresh_c,
         )
-        # img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+
+        # img = cv2.morphologyEx(img, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
         self.debug.img_thresholded = img.copy()
 
         contours, _ = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -1032,6 +1048,36 @@ class TrackerLineAndDots:
                 t_values = t_values[ordered_indices]
 
                 cr = self.cross_ratio(t_values)
+
+                if self.params.debug and False:  # noqa: SIM223
+                    vis = self.debug.img_raw.copy()
+                    cv2.polylines(
+                        vis,
+                        [np.array([frag.start_pt, frag.end_pt], dtype=int)],
+                        isClosed=False,
+                        color=(255, 0, 0),
+                        thickness=2,
+                    )
+                    for p in ellipse_points:
+                        cv2.circle(vis, (int(p[0]), int(p[1])), 3, (0, 0, 255), -1)
+                    for p in ellipse_points[mask]:
+                        cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 255, 0), -1)
+                    for p in ellipse_candidates[[i, j]]:
+                        cv2.circle(vis, (int(p[0]), int(p[1])), 7, (0, 255, 255), -1)
+
+                    cv2.putText(
+                        vis,
+                        f"CR: {cr:.3f}",
+                        (50, 50),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (0, 0, 255)
+                        if abs(cr - 0.375) > self.params.max_cr_error
+                        else (0, 255, 0),
+                        2,
+                    )
+                    cv2.imshow("Feature Line Debug", vis)
+                    cv2.waitKey(1)
                 target_cr = 0.375
                 if abs(cr - target_cr) < self.params.max_cr_error:
                     feature_line_points = np.array([
@@ -1108,7 +1154,7 @@ class TrackerLineAndDots:
 
             mean_error = self.reprojection_error(obj_points, img_points, rvec, tvec)
 
-            if self.params.debug and True:
+            if self.params.debug and False:  # noqa: SIM223
                 vis = self.debug.img_raw.copy()
                 for i, p in enumerate(img_points):
                     cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 0, 255), -1)
