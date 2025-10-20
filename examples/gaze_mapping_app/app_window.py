@@ -3,7 +3,7 @@ from common.eye_tracking_sources import EyeTrackingData
 from gaze_mapping_app.views.mapped_view import MappedView
 from gaze_mapping_app.views.raw_image_view import RawImageView
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QScreen
 from PySide6.QtWidgets import QHBoxLayout, QMenuBar, QWidget
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
@@ -13,8 +13,12 @@ class MainWindow(QWidget):
     on_feature_overlay_toggled = Signal()
     on_gaze_overlay_toggled = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, target_screen: QScreen, parent=None):
         super().__init__(parent)
+
+        geometry = target_screen.geometry()
+        self.setGeometry(geometry)
+        self.move(geometry.x(), geometry.y())
 
         layout = QHBoxLayout(self)
 
@@ -38,7 +42,7 @@ class MainWindow(QWidget):
         layout.setMenuBar(menubar)
 
         self.raw_img_view = RawImageView()
-        self.mapped_view = MappedView()
+        self.mapped_view = MappedView(target_screen)
 
         layout.addWidget(self.raw_img_view)
         layout.addWidget(self.mapped_view)

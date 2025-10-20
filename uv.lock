@@ -1343,6 +1343,7 @@ examples = [
     { name = "pyrav4l2" },
     { name = "pyside6" },
     { name = "pyusb" },
+    { name = "qimage2ndarray" },
 ]
 
 [package.metadata]
@@ -1380,6 +1381,7 @@ examples = [
     { name = "pyrav4l2", git = "https://github.com/antmicro/pyrav4l2.git" },
     { name = "pyside6", specifier = ">=6.10.0" },
     { name = "pyusb", specifier = ">=1.3.1" },
+    { name = "qimage2ndarray", specifier = ">=1.10.0" },
 ]
 
 [[package]]
@@ -1773,6 +1775,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/eb/2e/79c822141bfd05a853236b504869ebc6b70159afc570e1d5a20641782eaa/pyyaml_env_tag-1.1.tar.gz", hash = "sha256:2eb38b75a2d21ee0475d6d97ec19c63287a7e140231e4214969d0eac923cd7ff", size = 5737, upload-time = "2025-05-13T15:24:01.64Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/11/432f32f8097b03e3cd5fe57e88efb685d964e2e5178a48ed61e841f7fdce/pyyaml_env_tag-1.1-py3-none-any.whl", hash = "sha256:17109e1a528561e32f026364712fee1264bc2ea6715120891174ed1b980d2e04", size = 4722, upload-time = "2025-05-13T15:23:59.629Z" },
+]
+
+[[package]]
+name = "qimage2ndarray"
+version = "1.10.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/c5/9c5630bcda3e2dd8445dd5c663e938451967c84d7f8707816ca9f00824db/qimage2ndarray-1.10.0.tar.gz", hash = "sha256:3725102446dc8a696b2ec775b1d2af43b13af6a7f9ebee8a37115bb9543a2c58", size = 200439, upload-time = "2023-01-28T16:16:59.369Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/79/d3ce0ec91c3c761e04d0210d5544073ba3d38a4d6538e2ba58b45e33275c/qimage2ndarray-1.10.0-py3-none-any.whl", hash = "sha256:4c1c2a4ef2f72a7943392ee76305da87831274b9a10f00ccf624a54cb335ec6d", size = 12590, upload-time = "2023-01-28T16:16:54.996Z" },
 ]
 
 [[package]]
