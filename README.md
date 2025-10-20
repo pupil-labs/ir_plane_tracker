@@ -12,30 +12,22 @@
 > This package is a work in progress. Use at your own risk!
 > The API may change without warning, the computational performance is not optimized, and the tracking performance may lack in some cases.
 
-This repository implements a plane tracking algorithm based on retroreflective IR markers. The markers need to be placed on the boundary of the plane of interest in a known pattern. The camera needs to be an IR camera with IR illuminators placed around the lense.
+This repository implements a marker-based plane tracking algorithm. The markers need to be co-planar with the plane of interest, ideally placed close to the boundary of the plane. The exact position of the markers in relation to the plane needs to be known.
 
-Any circular retroreflective marker with a diameter of around 10 mm should work. The ones we used for testing are [these](https://www.amazon.de/-/en/dp/B0DSJ54GRH).
+Ideally, the camera is an IR camera with the markers made from a retroreflective material, but a regular RGB camera with black-and-white markers also works to some extent.
 
-The IR camera with IR illuminators we have used for testing is [this one](https://www.amazon.de/dp/B07C1JHB6K).
+## Quick Start
 
-## Input Parameters
-
-The IR markers need to be placed in groups of four in specific intervals to form a feature line. The intervals are defined by the `norm_line_points` parameter. By default they are placed on a 10 cm long line at steps `[0, 6, 8, 10]` cm. The intervals can be adjusted to fit the size of the plane better. It is recommended to keep the relative distances between the points the same and only scale them up or down linearly.
-
-![Feature Line Definition](feature_line.png)
-
-A total of 6 such feature lines should be placed along the boundary of the plane to be tracked as shown in the image below. Note that the orientation of the feature lines matters.
-
-The exact position of the line on the plane boundary does not matter, but it has to be documented as an input parameter via the various `*_margin` parameters.
-
-The width and height of the screen also need to be specified.
-
-![Measurement Instructions](measurement_instructions.png)
-
-Lastly, the resolution of the camera image needs to be specified via the `img_size_factor` parameter, which expresses the resolution as a multiple of the base resolution of 640x480 pixels. For example, if the camera image is 1280x960 pixels, the `img_size_factor` should be set to 2.0.
-
-## Installation
+To run the gaze mapping example application, install the dependencies using the following commands and finally run the example providing the IP of a Neon device on your network as an argument.
 
 ```bash
-pip install -e git+https://github.com/pupil-labs/pl-ir-plane-tracker.git
+git clone git@github.com:pupil-labs/ir_plane_tracker.git
+cd ir_plane_tracker/
+uv sync  --extra examples
+cd examples/
+python gaze_mapping_app_main.py <NEON_IP_ADDRESS>
 ```
+
+You can find the IP of your Neon device from the Neon Companion app when you open the network panel by clicking the icon in the top right corner of the home screen.
+
+The instructions assume you have [uv](https://docs.astral.sh/uv/) installed.
