@@ -1,40 +1,37 @@
 from time import time
 
 import cv2
-import numpy as np
 
-from pupil_labs.ir_plane_tracker import IRPlaneTracker, IRPlaneTrackerParams
+from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
+    TrackerLineAndDots,
+    TrackerLineAndDotsParams,
+)
 
 
 def main():
-    from camera import HDDigitalCam
+    # cam = HDDigitalCam()
+    # camera_matrix = np.load("camera_matrix.npy")
+    # dist_coeffs = np.load("dist_coeffs.npy")
+    # params_json_path = "hddigital.json"
+    from camera import SceneCam
 
-    cam = HDDigitalCam()
-    camera_matrix = np.load("camera_matrix.npy")
-    dist_coeffs = np.load("dist_coeffs.npy")
-    params_json_path = "hddigital.json"
+    cam = SceneCam()
+    camera_matrix, dist_coeffs = cam.get_intrinsics()
+    params_json_path = "neon_artificial.json"
 
-    # from camera import SceneCam
-    # cam = SceneCam()
-    # camera_matrix, dist_coeffs = cam.get_intrinsics()
-    # params_json_path = "neon.json"
+    params = TrackerLineAndDotsParams.from_json(params_json_path)
 
-    params = IRPlaneTrackerParams.from_json(params_json_path)
-
-    tracker = IRPlaneTracker(
-        camera_matrix=camera_matrix, dist_coeffs=dist_coeffs, params=params
+    tracker = TrackerLineAndDots(
+        camera_matrix=camera_matrix, dist_coeffs=None, params=params
     )
 
-    frame_counter = 600
+    frame_counter = 1006
     deltas = []
     while True:
         frame = cam.get_frame()
 
         img = frame.bgr
         img = cv2.undistort(img, camera_matrix, dist_coeffs)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-
         cv2.imshow("Raw Image", img)
 
         start_ts = time()
@@ -49,7 +46,7 @@ def main():
         print(f"FPS: {fps:.2f}", end="\r")
 
         tracker.debug.visualize()
-        key = cv2.waitKey(1)
+        key = cv2.waitKey(0)
 
         if key == ord("q"):
             break

@@ -77,8 +77,11 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 examples = [
+    "aiortsp>=1.4.0",
+    "pupil-labs-realtime-api>=1.7.2",
     "pupil-labs-uvc>=1.0.0",
     "pyrav4l2>=1.0",
+    "pyside6>=6.10.0",
     "pyusb>=1.3.1",
 ]
 

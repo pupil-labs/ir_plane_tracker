@@ -246,7 +246,7 @@ class HDDigitalCam(UVCBackend):
         super().__init__(spec)
         controls = {c.display_name: c for c in self._uvc_capture.controls}
         controls["Auto Exposure Mode"].value = 1
-        controls["Absolute Exposure Time"].value = 200
+        controls["Absolute Exposure Time"].value = 10
 
 
 class SceneCam(Camera):
@@ -277,23 +277,8 @@ class SceneCam(Camera):
         self.uvc_controls = {
             c.display_name: c for c in self.backend._uvc_capture.controls
         }
-        camera_parameters = {
-            "Backlight Compensation": 2,
-            "Brightness": 0,
-            "Contrast": 32,
-            "Gain": 64,
-            "Hue": 0,
-            "Saturation": 64,
-            "Sharpness": 50,
-            "Gamma": 300,
-            "Auto Exposure Mode": 1,
-            "Absolute Exposure Time": 250,
-        }
-        for key, value in camera_parameters.items():
-            try:
-                self.uvc_controls[key].value = value
-            except KeyError:
-                print(f"Setting {key} to {value} failed: Unknown control. Known ")
+        for control in self.uvc_controls.values():
+            control.value = control.def_val
 
     @staticmethod
     def get_intrinsics() -> CameraIntrinsics:
