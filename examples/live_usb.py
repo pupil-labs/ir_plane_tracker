@@ -17,7 +17,7 @@ def main():
 
     cam = SceneCam()
     camera_matrix, dist_coeffs = cam.get_intrinsics()
-    params_json_path = "neon.json"
+    params_json_path = "neon_artificial.json"
 
     params = TrackerLineAndDotsParams.from_json(params_json_path)
 

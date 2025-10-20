@@ -413,6 +413,33 @@ class TrackerLineAndDotsParams:
     optimization_error_threshold: float = 15.0
     debug: bool = False
 
+    def __post_init__(self):
+        self.thresh_half_kernel_size = int(
+            self.thresh_half_kernel_size * self.img_size_factor
+        )
+        self.min_contour_area_line = int(
+            self.min_contour_area_line * (self.img_size_factor**2)
+        )
+        self.max_contour_area_line = int(
+            self.max_contour_area_line * (self.img_size_factor**2)
+        )
+        self.min_contour_area_ellipse = int(
+            self.min_contour_area_ellipse * (self.img_size_factor**2)
+        )
+        self.max_contour_area_ellipse = int(
+            self.max_contour_area_ellipse * (self.img_size_factor**2)
+        )
+        self.fragments_min_length = self.fragments_min_length * self.img_size_factor
+        self.fragments_max_length = self.fragments_max_length * self.img_size_factor
+        self.fragments_max_projection_error = (
+            self.fragments_max_projection_error * self.img_size_factor
+        )
+        self.min_ellipse_size = int(self.min_ellipse_size * self.img_size_factor)
+        self.max_line_length = self.max_line_length * self.img_size_factor
+        self.optimization_error_threshold = (
+            self.optimization_error_threshold * self.img_size_factor
+        )
+
     @staticmethod
     def from_json(json_path: str) -> "TrackerLineAndDotsParams":
         import json
@@ -420,14 +447,17 @@ class TrackerLineAndDotsParams:
         with open(json_path) as f:
             data = json.load(f)
 
-        params = TrackerLineAndDotsParams()
-        for key, value in data.items():
-            if hasattr(params, key):
-                if key == "norm_line_points":
-                    value = np.array(value)
-                setattr(params, key, value)
-            else:
-                raise KeyError(f"Unknown parameter: {key}")
+        if "norm_line_points" in data:
+            data["norm_line_points"] = np.array(data["norm_line_points"])
+
+        params = TrackerLineAndDotsParams(**data)
+        # for key, value in data.items():
+        #     if hasattr(params, key):
+        #         if key == "norm_line_points":
+        #             value = np.array(value)
+        #         setattr(params, key, value)
+        #     else:
+        #         raise KeyError(f"Unknown parameter: {key}")
         return params
 
 
@@ -831,10 +861,11 @@ class TrackerLineAndDots:
         self.debug = DebugData(self.params)
 
     def init_object_point_map(self) -> dict[LinePositions, npt.NDArray[np.float64]]:
+        feature_length = np.max(self.params.norm_line_points)
         obj_map = {
             LinePositions.TOP: np.column_stack((
                 self.params.plane_width
-                - (10 - self.params.norm_line_points)
+                - (feature_length - self.params.norm_line_points)
                 - self.params.top_margin[0],
                 np.zeros_like(self.params.norm_line_points) - self.params.top_margin[1],
                 np.zeros_like(self.params.norm_line_points),
@@ -842,7 +873,7 @@ class TrackerLineAndDots:
             LinePositions.BOTTOM: np.column_stack((
                 (
                     self.params.bottom_margin[0]
-                    + 10
+                    + feature_length
                     - self.params.norm_line_points[::-1]
                 )[::-1],
                 np.ones_like(self.params.norm_line_points) * self.params.plane_height
@@ -852,9 +883,11 @@ class TrackerLineAndDots:
             LinePositions.LEFT: np.column_stack((
                 np.zeros_like(self.params.norm_line_points)
                 - self.params.left_margin[0],
-                (self.params.left_margin[1] + 10 - self.params.norm_line_points[::-1])[
-                    ::-1
-                ],
+                (
+                    self.params.left_margin[1]
+                    + feature_length
+                    - self.params.norm_line_points[::-1]
+                )[::-1],
                 np.zeros_like(self.params.norm_line_points),
             )),
             LinePositions.RIGHT: np.column_stack((
@@ -1129,7 +1162,7 @@ class TrackerLineAndDots:
 
         return combinations
 
-    def fit_camera_pose(  # noqa: C901
+    def fit_camera_pose(
         self, combinations: Combinations
     ) -> tuple[npt.NDArray[np.float64] | None, npt.NDArray[np.float64] | None]:
         rvec = tvec = None
@@ -1153,104 +1186,6 @@ class TrackerLineAndDots:
                 continue
 
             mean_error = self.reprojection_error(obj_points, img_points, rvec, tvec)
-
-            if self.params.debug and False:  # noqa: SIM223
-                vis = self.debug.img_raw.copy()
-                for i, p in enumerate(img_points):
-                    cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 0, 255), -1)
-                    cv2.putText(
-                        vis,
-                        f"{i}",
-                        (int(p[0]), int(p[1])),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (255, 0, 0),
-                        1,
-                    )
-                cv2.putText(
-                    vis,
-                    f"Error: {mean_error:.2f}",
-                    (50, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 255),
-                    2,
-                )
-                cv2.imshow("Img Points", vis)
-
-                scale_factor = 10
-                padding = 30
-                vis = np.zeros(
-                    (
-                        int(self.params.plane_height * scale_factor) + 2 * padding,
-                        int(self.params.plane_width * scale_factor) + 2 * padding,
-                        3,
-                    ),
-                    dtype=np.uint8,
-                )
-
-                corners = np.array([
-                    [0 + padding, 0 + padding],
-                    [self.params.plane_width * scale_factor + padding, 0 + padding],
-                    [
-                        self.params.plane_width * scale_factor + padding,
-                        self.params.plane_height * scale_factor + padding,
-                    ],
-                    [0 + padding, self.params.plane_height * scale_factor + padding],
-                ])
-                cv2.polylines(
-                    vis,
-                    [corners.astype(np.int32)],
-                    isClosed=True,
-                    color=(255, 255, 255),
-                    thickness=2,
-                )
-
-                for i, p in enumerate(obj_points):
-                    p = p * scale_factor
-                    p += padding
-                    cv2.circle(
-                        vis,
-                        (int(p[0]), int(p[1])),
-                        5,
-                        (0, 0, 255),
-                        -1,
-                    )
-                    cv2.putText(
-                        vis,
-                        f"{i}",
-                        (int(p[0]), int(p[1])),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (255, 0, 0),
-                        1,
-                    )
-                cv2.imshow("Object Points", vis)
-
-                reprojected_points, _ = cv2.projectPoints(
-                    obj_points,
-                    rvec,
-                    tvec,
-                    self.camera_matrix,
-                    self.dist_coeffs,
-                )
-                reprojected_points = reprojected_points.squeeze()
-                vis = self.debug.img_raw.copy()
-                for i, p in enumerate(reprojected_points):
-                    cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 255, 0), -1)
-                    cv2.putText(
-                        vis,
-                        f"{i}",
-                        (int(p[0]), int(p[1])),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5,
-                        (255, 0, 0),
-                        1,
-                    )
-                cv2.imshow("Reprojected Points", vis)
-                key = cv2.waitKey(0)
-                if key == ord("l"):
-                    break
 
             self.debug.optimization_errors.append(mean_error)
 
@@ -1302,7 +1237,7 @@ class TrackerLineAndDots:
 
         return localization
 
-    def __call__(self, image: npt.NDArray[np.uint8]):
+    def __call__(self, image: npt.NDArray[np.uint8]) -> PlaneLocalization | None:
         self.debug = DebugData(self.params)
         self.debug.img_raw = image.copy()
         # image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)
