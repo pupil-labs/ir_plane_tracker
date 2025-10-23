@@ -451,14 +451,29 @@ class TrackerLineAndDotsParams:
             data["norm_line_points"] = np.array(data["norm_line_points"])
 
         params = TrackerLineAndDotsParams(**data)
-        # for key, value in data.items():
-        #     if hasattr(params, key):
-        #         if key == "norm_line_points":
-        #             value = np.array(value)
-        #         setattr(params, key, value)
-        #     else:
-        #         raise KeyError(f"Unknown parameter: {key}")
         return params
+
+    def update_from_dict(self, params: dict) -> None:
+        for key, value in params.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                raise KeyError(f"Unknown parameter: {key}")
+
+    def __eq__(self, obj: object) -> bool:
+        if not isinstance(obj, TrackerLineAndDotsParams):
+            return False
+
+        for key, val in self.__dict__.items():
+            if key not in obj.__dict__:
+                return False
+            if isinstance(val, np.ndarray):
+                if not np.array_equal(val, obj.__dict__[key]):
+                    return False
+            else:
+                if val != obj.__dict__[key]:
+                    return False
+        return True
 
 
 class DebugData:
@@ -857,8 +872,16 @@ class TrackerLineAndDots:
         else:
             self.params = params
 
-        self.obj_point_map = self.init_object_point_map()
         self.debug = DebugData(self.params)
+
+    @property
+    def params(self) -> TrackerLineAndDotsParams:
+        return self._params
+
+    @params.setter
+    def params(self, value: TrackerLineAndDotsParams) -> None:
+        self._params = value
+        self.obj_point_map = self.init_object_point_map()
 
     def init_object_point_map(self) -> dict[LinePositions, npt.NDArray[np.float64]]:
         feature_length = np.max(self.params.norm_line_points)
