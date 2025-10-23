@@ -13,11 +13,11 @@ def main():
     # camera_matrix = np.load("camera_matrix.npy")
     # dist_coeffs = np.load("dist_coeffs.npy")
     # params_json_path = "hddigital.json"
-    from camera import SceneCam
+    from common.camera import SceneCam
 
     cam = SceneCam()
     camera_matrix, dist_coeffs = cam.get_intrinsics()
-    params_json_path = "neon_artificial.json"
+    params_json_path = "resources/neon_ipad.json"
 
     params = TrackerLineAndDotsParams.from_json(params_json_path)
 
