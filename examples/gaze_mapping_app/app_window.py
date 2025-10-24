@@ -16,10 +16,6 @@ class MainWindow(QWidget):
     def __init__(self, target_screen: QScreen, parent=None):
         super().__init__(parent)
 
-        geometry = target_screen.geometry()
-        self.setGeometry(geometry)
-        self.move(geometry.x(), geometry.y())
-
         layout = QHBoxLayout(self)
 
         menubar = QMenuBar(self)

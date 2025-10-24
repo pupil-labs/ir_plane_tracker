@@ -11,12 +11,7 @@ class FeatureDisplayApp(QApplication):
         super().__init__()
         self.setApplicationDisplayName("Feature Display App")
         target_screen = self.screens()[0]  # Primary screen
-        geometry = target_screen.geometry()
-        screen_size = geometry.size().toTuple()
-        self.feature_overlay = FeatureOverlay(screen_size, parent=None)
-        self.feature_overlay.setGeometry(geometry)
-        self.feature_overlay.showFullScreen()
-        # self.feature_overlay.feature_values_mm
+        self.feature_overlay = FeatureOverlay(target_screen)
 
 
 def run():

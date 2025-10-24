@@ -8,8 +8,8 @@ from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
 
 
 class GazeOverlay(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def __init__(self, target_screen):
+        super().__init__()
         self.gaze = []
 
         self.setWindowFlag(Qt.FramelessWindowHint)
@@ -17,6 +17,12 @@ class GazeOverlay(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setStyleSheet("background:transparent;")
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setWindowFlag(Qt.WindowTransparentForInput)
+
+        self.setGeometry(target_screen.geometry())
+        self.move(target_screen.geometry().x(), target_screen.geometry().y())
+        self.showFullScreen()
 
     def set_data(
         self,

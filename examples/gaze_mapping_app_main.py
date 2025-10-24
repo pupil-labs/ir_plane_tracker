@@ -43,18 +43,16 @@ class GazeMappingApp(QApplication):
         )
 
         screens = QGuiApplication.screens()
-        target_screen = screens[0]
+        target_screen = screens[1]
         self.main_window = MainWindow(target_screen)
+        self.main_window.setMinimumSize(1600, 600)
 
-        self.feature_overlay = FeatureOverlay(
-            self.screens()[0].size().toTuple(), parent=self.main_window
-        )
-        self.feature_overlay.setGeometry(self.main_window.geometry())
-        self.toggle_feature_overlay()
+        self.feature_overlay = FeatureOverlay(target_screen)
+        self.gaze_overlay = GazeOverlay(target_screen)
 
-        self.gaze_overlay = GazeOverlay(parent=self.main_window)
-        self.gaze_overlay.setGeometry(self.main_window.geometry())
-        self.gaze_overlay.show()
+        # Connections
+        self.main_window.destroyed.connect(self.gaze_overlay.close)
+        self.main_window.destroyed.connect(self.feature_overlay.close)
 
         self.on_data_update.connect(self.main_window.set_data)
         self.on_data_update.connect(self.gaze_overlay.set_data)
@@ -63,7 +61,7 @@ class GazeMappingApp(QApplication):
             lambda: self.gaze_overlay.setVisible(not self.gaze_overlay.isVisible())
         )
 
-        self.main_window.showFullScreen()
+        self.main_window.show()
 
         self.poll_timer = QTimer()
         self.poll_timer.setInterval(int(1000 / 30))
