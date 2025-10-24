@@ -203,14 +203,13 @@ class FeatureLineCombination:
 
 
 class Combinations:
-    def __init__(self) -> None:
+    def __init__(self, min_line_count: int) -> None:
         self._combinations: list[FeatureLineCombination] = [FeatureLineCombination()]
+        self._min_line_count = min_line_count
 
     def add_line(self, line: FeatureLine, positions: list[LinePositions]) -> None:
-        new_combinations = []
+        new_combinations = self._combinations.copy()
         for combination in self._combinations:
-            old_combination_length = len(new_combinations)
-
             dir1 = line.points[-1] - line.points[0]
             for position in positions:
                 # Some lines need to be co-linear with other lines to be plausible
@@ -233,11 +232,6 @@ class Combinations:
                     c = combination.copy()
                     c[position] = line
                     new_combinations.append(c)
-
-            if len(self._combinations) != old_combination_length:
-                # Add a combination where this line is a false positive
-                # If no new combination was added, the line can be ignored
-                new_combinations.append(combination.copy())
 
         self._combinations = new_combinations
 
@@ -346,7 +340,7 @@ class Combinations:
         new_combinations = []
         for combination in self._combinations:
             # A single line does not suffice
-            if len(combination) < 2:
+            if len(combination) < self._min_line_count:
                 continue
 
             # Two co-linear lines do not suffice
@@ -407,6 +401,7 @@ class TrackerLineAndDotsParams:
     min_ellipse_count: int = 8
 
     max_cr_error: float = 0.12
+    max_feature_line_length: float = 150.0
     min_feature_line_count: int = 3
     max_line_length: float = 200.0
 
@@ -491,9 +486,9 @@ class DebugData:
         self.fragments_filtered: list[Fragment] | None = None
         self.ellipses_raw: list[Ellipse] | None = None
         self.ellipses_filtered: list[Ellipse] | None = None
-        self.feature_lines_raw: list[FeatureLine] | None = None
+        self.feature_lines_candidates: list[FeatureLine] | None = None
         self.feature_lines_filtered: list[FeatureLine] | None = None
-        self.feature_lines_processed: list[FeatureLine] | None = None
+        self.feature_lines_lengths: list[float] | None = None
         self.cr_values: list[float] | None = None
         self.optimization_errors: list[float] = []
         self.optimization_final_combination: FeatureLineCombination | None = None
@@ -731,8 +726,10 @@ class DebugData:
 
     def _visualize_feature_lines(self):
         vis = self.img_thresholded.copy()
-        if self.feature_lines_raw is not None and self.cr_values is not None:
-            for line, cr in zip(self.feature_lines_raw, self.cr_values, strict=False):
+        if self.feature_lines_candidates is not None and self.cr_values is not None:
+            for line, cr in zip(
+                self.feature_lines_candidates, self.cr_values, strict=False
+            ):
                 color = (
                     (0, 0, 255)
                     if abs(cr - 0.375) > self.params.max_cr_error
@@ -1135,7 +1132,9 @@ class TrackerLineAndDots:
                     cv2.imshow("Feature Line Debug", vis)
                     cv2.waitKey(1)
                 target_cr = 0.375
-                if abs(cr - target_cr) < self.params.max_cr_error:
+                # Pick up candidates that are close to good enough so we have more
+                # information for debugging.
+                if abs(cr - target_cr) < self.params.max_cr_error * 1.5:
                     feature_line_points = np.array([
                         frag.start_pt,
                         frag.end_pt,
@@ -1146,8 +1145,26 @@ class TrackerLineAndDots:
                     feature_lines.append(FeatureLine(feature_line_points, t_values))
                     cr_values.append(cr)
 
-        self.debug.feature_lines_raw = feature_lines
+        self.debug.feature_lines_candidates = feature_lines
         self.debug.cr_values = cr_values
+
+        line_lengths = [
+            np.linalg.norm(line.points[1] - line.points[0]) for line in feature_lines
+        ]
+
+        self.debug.feature_lines_lengths = line_lengths
+
+        feature_lines = [
+            line
+            for line, cr, length in zip(
+                feature_lines, cr_values, line_lengths, strict=True
+            )
+            if abs(cr - 0.375) <= self.params.max_cr_error
+            and length <= self.params.max_feature_line_length
+        ]
+
+        self.debug.feature_lines_filtered = feature_lines
+
         return feature_lines
 
     def get_obj_and_img_points(
@@ -1168,7 +1185,7 @@ class TrackerLineAndDots:
     def get_possible_combinations(
         self, feature_lines: list[FeatureLine]
     ) -> Combinations:
-        combinations = Combinations()
+        combinations = Combinations(self.params.min_feature_line_count)
         for line in feature_lines:
             if line.orientation == Orientation.LEFT:
                 combinations.add_line(line, [LinePositions.BOTTOM])
@@ -1200,7 +1217,6 @@ class TrackerLineAndDots:
                 img_points,
                 self.camera_matrix,
                 self.dist_coeffs,
-                # flags=cv2.SOLVEPNP_IPPE,
             )
             num_optimizations += 1
 
