@@ -17,7 +17,7 @@ from pupil_labs.ir_plane_tracker.tracker_line_and_dots import LinePositions
 class DebugApp(QApplication):
     data_changed = Signal(object, object, object)
 
-    def __init__(self):
+    def __init__(self, params_path=None):
         super().__init__()
         self.setApplicationDisplayName("Debug App")
         qdarktheme.setup_theme()
@@ -46,13 +46,15 @@ class DebugApp(QApplication):
 
         # Data initialization
         self.params = TrackerLineAndDotsParams.from_json(
-            "resources/neon_artificial.json"
+            params_path or "resources/neon_artificial.json"
         )
         feature_values_px = self.feature_overlay.feature_values_px
-        feature_values_px = np.hstack([
-            feature_values_px,
-            np.zeros((feature_values_px.shape[0], 1)),
-        ])
+        feature_values_px = np.hstack(
+            [
+                feature_values_px,
+                np.zeros((feature_values_px.shape[0], 1)),
+            ]
+        )
         feature_values_px = feature_values_px.reshape(-1, 4, 3)
         self.params.plane_width = float(self.feature_overlay.screen_size_px[0])
         self.params.plane_height = float(self.feature_overlay.screen_size_px[1])
@@ -98,7 +100,11 @@ class DebugApp(QApplication):
 
 
 def run():
-    app = DebugApp()
+    import sys
+
+    app = DebugApp(
+        params_path=sys.argv[1] if len(sys.argv) > 1 else None,
+    )
     app.exec()
 
 
