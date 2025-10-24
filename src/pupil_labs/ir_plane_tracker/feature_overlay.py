@@ -14,7 +14,6 @@ class FeatureOverlay(QWidget):
 
         self.setWindowFlag(Qt.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowStaysOnTopHint)
-        self.setWindowFlag(Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setStyleSheet("background:transparent;")
