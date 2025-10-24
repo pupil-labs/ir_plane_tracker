@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from common import eye_tracking_sources
 from gaze_mapping_app.app_window import MainWindow
-from gaze_mapping_app.feature_overlay import FeatureOverlay
 from gaze_mapping_app.gaze_overlay import GazeOverlay
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QGuiApplication
@@ -12,6 +11,7 @@ from pupil_labs.ir_plane_tracker import (
     TrackerLineAndDots,
     TrackerLineAndDotsParams,
 )
+from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
     LinePositions,
 )
@@ -37,29 +37,33 @@ class GazeMappingApp(QApplication):
             params=self.params,
         )
         self.original_obj_point_map = self.tracker.obj_point_map.copy()
+        self.original_plane_size = (
+            self.tracker.params.plane_width,
+            self.tracker.params.plane_height,
+        )
 
         screens = QGuiApplication.screens()
-        target_screen = screens[0]
+        target_screen = screens[-1]
         self.main_window = MainWindow(target_screen)
+        self.main_window.setMinimumSize(1600, 600)
 
-        self.feature_overlay = FeatureOverlay(
-            self.screens()[0].size().toTuple(), parent=self.main_window
-        )
-        self.feature_overlay.setGeometry(self.main_window.geometry())
+        self.feature_overlay = FeatureOverlay(target_screen)
         self.toggle_feature_overlay()
+        self.gaze_overlay = GazeOverlay(target_screen)
+        self.gaze_overlay.toggle_visibility()
 
-        self.gaze_overlay = GazeOverlay(parent=self.main_window)
-        self.gaze_overlay.setGeometry(self.main_window.geometry())
-        self.gaze_overlay.show()
+        # Connections
+        self.main_window.destroyed.connect(self.gaze_overlay.close)
+        self.main_window.destroyed.connect(self.feature_overlay.close)
 
         self.on_data_update.connect(self.main_window.set_data)
         self.on_data_update.connect(self.gaze_overlay.set_data)
         self.main_window.on_feature_overlay_toggled.connect(self.toggle_feature_overlay)
         self.main_window.on_gaze_overlay_toggled.connect(
-            lambda: self.gaze_overlay.setVisible(not self.gaze_overlay.isVisible())
+            lambda: self.gaze_overlay.toggle_visibility()
         )
 
-        self.main_window.showFullScreen()
+        self.main_window.show()
 
         self.poll_timer = QTimer()
         self.poll_timer.setInterval(int(1000 / 30))
@@ -68,22 +72,32 @@ class GazeMappingApp(QApplication):
 
     def toggle_feature_overlay(self):
         if self.feature_overlay.isVisible():
-            self.feature_overlay.setVisible(False)
+            self.feature_overlay.toggle_visibility()
             self.tracker.obj_point_map = self.original_obj_point_map.copy()
+            self.tracker.params.plane_width = self.original_plane_size[0]
+            self.tracker.params.plane_height = self.original_plane_size[1]
         else:
-            self.feature_overlay.setVisible(True)
-            feature_values_mm = self.feature_overlay.feature_values_mm
-            feature_values_mm = np.hstack([
-                feature_values_mm,
-                np.zeros((feature_values_mm.shape[0], 1)),
-            ])
-            feature_values_mm = feature_values_mm.reshape(-1, 4, 3)
+            self.feature_overlay.toggle_visibility()
+            feature_values_px = self.feature_overlay.feature_values_px
+            feature_values_px = np.hstack(
+                [
+                    feature_values_px,
+                    np.zeros((feature_values_px.shape[0], 1)),
+                ]
+            )
+            feature_values_px = feature_values_px.reshape(-1, 4, 3)
             self.tracker.obj_point_map = {
-                LinePositions.TOP: feature_values_mm[0],
-                LinePositions.RIGHT: feature_values_mm[1],
-                LinePositions.BOTTOM: feature_values_mm[2],
-                LinePositions.LEFT: feature_values_mm[3],
+                LinePositions.TOP: feature_values_px[0],
+                LinePositions.RIGHT: feature_values_px[1],
+                LinePositions.BOTTOM: feature_values_px[2],
+                LinePositions.LEFT: feature_values_px[3],
             }
+            self.tracker.params.plane_width = float(
+                self.feature_overlay.screen_size_px[0]
+            )
+            self.tracker.params.plane_height = float(
+                self.feature_overlay.screen_size_px[1]
+            )
 
     def poll(self):
         eye_tracking_data = self.eye_tracking_source.get_sample()

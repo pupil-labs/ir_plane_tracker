@@ -1,14 +1,54 @@
 import cv2
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
+from debug_app.views import View
+from debug_app.widgets.labeled_slider import LabeledSlider
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
+from pupil_labs.ir_plane_tracker.tracker_line_and_dots import TrackerLineAndDotsParams
 
 
-class ContoursView(ScaledImageView):
+class ContoursView(View):
     name = "Contours"
 
-    def update_data(
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.image_view = ScaledImageView(self)
+        layout = QHBoxLayout()
+        layout.addWidget(self.image_view, stretch=5)
+
+        sidebar_layout = QVBoxLayout()
+
+        self.min_contour_area_line = LabeledSlider(
+            "min_contour_area_line", 100, 5000, 350
+        )
+        sidebar_layout.addWidget(self.min_contour_area_line)
+        self.max_contour_area_line = LabeledSlider(
+            "max_contour_area_line", 100, 5000, 2000
+        )
+        sidebar_layout.addWidget(self.max_contour_area_line)
+        self.min_contour_area_ellipse = LabeledSlider(
+            "min_contour_area_ellipse", 10, 800, 100
+        )
+        sidebar_layout.addWidget(self.min_contour_area_ellipse)
+        self.max_contour_area_ellipse = LabeledSlider(
+            "max_contour_area_ellipse", 10, 800, 500
+        )
+        sidebar_layout.addWidget(self.max_contour_area_ellipse)
+
+        sidebar_layout.addStretch()
+        layout.addLayout(sidebar_layout, stretch=2)
+
+        self.setLayout(layout)
+
+    def set_tracker_params(self, params: TrackerLineAndDotsParams) -> None:
+        self.min_contour_area_line.set_value(params.min_contour_area_line)
+        self.max_contour_area_line.set_value(params.max_contour_area_line)
+        self.min_contour_area_ellipse.set_value(params.min_contour_area_ellipse)
+        self.max_contour_area_ellipse.set_value(params.max_contour_area_ellipse)
+
+    def set_data(
         self,
         eye_tracking_data: EyeTrackingData,
         plane_localization: PlaneLocalization,
@@ -34,59 +74,5 @@ class ContoursView(ScaledImageView):
                 (255, 0, 0),
                 1,
             )
-        # cv2.putText(
-        #     vis,
-        #     "Line",
-        #     (50, 25),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (0, 255, 0),
-        #     2,
-        # )
-        # cv2.putText(
-        #     vis,
-        #     f"Min Area: {self.params.min_contour_area_line}",
-        #     (50, 50),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (0, 255, 0),
-        #     2,
-        # )
-        # cv2.putText(
-        #     vis,
-        #     f"Max Area: {self.params.max_contour_area_line}",
-        #     (50, 75),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (0, 255, 0),
-        #     2,
-        # )
-        # cv2.putText(
-        #     vis,
-        #     "Ellipse",
-        #     (300, 25),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (255, 0, 0),
-        #     2,
-        # )
-        # cv2.putText(
-        #     vis,
-        #     f"Min Area: {self.params.min_contour_area_ellipse}",
-        #     (300, 50),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (255, 0, 0),
-        #     2,
-        # )
-        # cv2.putText(
-        #     vis,
-        #     f"Max Area: {self.params.max_contour_area_ellipse}",
-        #     (300, 75),
-        #     cv2.FONT_HERSHEY_SIMPLEX,
-        #     0.5,
-        #     (255, 0, 0),
-        #     2,
-        # )
 
-        self.set_image(vis)
+        self.image_view.set_image(vis)

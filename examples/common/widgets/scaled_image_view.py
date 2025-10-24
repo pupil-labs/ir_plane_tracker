@@ -8,8 +8,8 @@ from PySide6.QtWidgets import QWidget
 class ScaledImageView(QWidget):
     image: QImage | QPixmap | None
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
         self.image = None
         self.render_rect = None
