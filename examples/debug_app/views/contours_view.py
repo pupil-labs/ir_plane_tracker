@@ -21,11 +21,11 @@ class ContoursView(View):
         sidebar_layout = QVBoxLayout()
 
         self.min_contour_area_line = LabeledSlider(
-            "min_contour_area_line", 100, 5000, 350
+            "min_contour_area_line", 100, 3000, 350
         )
         sidebar_layout.addWidget(self.min_contour_area_line)
         self.max_contour_area_line = LabeledSlider(
-            "max_contour_area_line", 100, 5000, 2000
+            "max_contour_area_line", 100, 6000, 2000
         )
         sidebar_layout.addWidget(self.max_contour_area_line)
         self.min_contour_area_ellipse = LabeledSlider(

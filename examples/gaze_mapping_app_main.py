@@ -20,7 +20,7 @@ from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
 class GazeMappingApp(QApplication):
     on_data_update = Signal(object, object, object, object)
 
-    def __init__(self, neon_ip: str, neon_port: int = 8080):
+    def __init__(self, neon_ip: str, neon_port: int = 8080, params_path: str = None):
         super().__init__()
         self.setApplicationDisplayName("Gaze Mapping Demo")
         self.eye_tracking_source = eye_tracking_sources.RemoteSource(
@@ -29,7 +29,7 @@ class GazeMappingApp(QApplication):
         self.camera_matrix = self.eye_tracking_source.scene_intrinsics.camera_matrix
         self.dist_coeffs = self.eye_tracking_source.scene_intrinsics.distortion_coeffs
         self.params = TrackerLineAndDotsParams.from_json(
-            "resources/neon_artificial.json"
+            params_path or "resources/neon_artificial.json"
         )
         self.tracker = TrackerLineAndDots(
             camera_matrix=self.camera_matrix,
@@ -128,8 +128,11 @@ class GazeMappingApp(QApplication):
 def run():
     import sys
 
+    params_path = sys.argv[3] if len(sys.argv) > 3 else None
     app = GazeMappingApp(
-        neon_ip=sys.argv[1], neon_port=int(sys.argv[2]) if len(sys.argv) > 2 else 8080
+        neon_ip=sys.argv[1],
+        neon_port=int(sys.argv[2]) if len(sys.argv) > 2 else 8080,
+        params_path=params_path,
     )
     app.exec()
 
