@@ -3,6 +3,7 @@ import numpy.typing as npt
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPainter, QScreen
 from PySide6.QtWidgets import QWidget
+import platform
 
 
 class FeatureOverlay(QWidget):
@@ -13,6 +14,7 @@ class FeatureOverlay(QWidget):
 
         self.setWindowFlag(Qt.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowStaysOnTopHint)
+        self.setWindowFlag(Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self.setStyleSheet("background:transparent;")
@@ -21,7 +23,6 @@ class FeatureOverlay(QWidget):
 
         self.setGeometry(target_screen.geometry())
         self.move(target_screen.geometry().x(), target_screen.geometry().y())
-        self.showFullScreen()
 
         self.feature_overlay_painter = FeatureOverlayPainter(self)
         self.screen_size_mm = target_screen.physicalSize().toTuple()
@@ -50,12 +51,14 @@ class FeatureOverlay(QWidget):
 
     @property
     def feature_values_px(self) -> np.ndarray:
-        return np.concatenate([
-            self._top_feature_px[::-1],
-            self._right_feature_px[::-1],
-            self._bottom_feature_px[::-1],
-            self._left_feature_px[::-1],
-        ])
+        return np.concatenate(
+            [
+                self._top_feature_px[::-1],
+                self._right_feature_px[::-1],
+                self._bottom_feature_px[::-1],
+                self._left_feature_px[::-1],
+            ]
+        )
 
     @property
     def feature_thickness_px(self):
@@ -63,10 +66,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _top_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            self.norm_points_px.max() - self.norm_points_px[::-1],
-            np.zeros(4),
-        ])
+        points = np.column_stack(
+            [
+                self.norm_points_px.max() - self.norm_points_px[::-1],
+                np.zeros(4),
+            ]
+        )
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] += self.feature_thickness_px / 2 + self.padding_px
@@ -75,10 +80,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _bottom_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            self.norm_points_px,
-            np.ones(4) * self.screen_size_px[1],
-        ])
+        points = np.column_stack(
+            [
+                self.norm_points_px,
+                np.ones(4) * self.screen_size_px[1],
+            ]
+        )
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] -= self.feature_thickness_px / 2 + self.padding_px
@@ -87,10 +94,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _left_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            np.zeros(4),
-            self.norm_points_px,
-        ])
+        points = np.column_stack(
+            [
+                np.zeros(4),
+                self.norm_points_px,
+            ]
+        )
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] += self.feature_thickness_px / 2 + self.padding_px
@@ -99,10 +108,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _right_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            np.ones(4) * self.screen_size_px[0],
-            self.norm_points_px.max() - self.norm_points_px[::-1],
-        ])
+        points = np.column_stack(
+            [
+                np.ones(4) * self.screen_size_px[0],
+                self.norm_points_px.max() - self.norm_points_px[::-1],
+            ]
+        )
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] -= self.feature_thickness_px / 2 + self.padding_px
@@ -114,12 +125,15 @@ class FeatureOverlay(QWidget):
             with QPainter(self) as painter:
                 self.feature_overlay_painter.paint(painter)
 
-    # def toggle_visibility(self):
-    #     if self.isVisible():
-    #         self.hide()
-    #     else:
-    #         self.showFullScreen()
-    #         self.update()
+    def toggle_visibility(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            if platform.system() == "Darwin":
+                self.showMaximized()
+            else:
+                self.showFullScreen()
+            self.update()
 
 
 class FeatureOverlayPainter:

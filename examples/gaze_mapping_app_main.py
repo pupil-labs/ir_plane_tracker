@@ -43,12 +43,14 @@ class GazeMappingApp(QApplication):
         )
 
         screens = QGuiApplication.screens()
-        target_screen = screens[1]
+        target_screen = screens[-1]
         self.main_window = MainWindow(target_screen)
         self.main_window.setMinimumSize(1600, 600)
 
         self.feature_overlay = FeatureOverlay(target_screen)
+        self.toggle_feature_overlay()
         self.gaze_overlay = GazeOverlay(target_screen)
+        self.gaze_overlay.toggle_visibility()
 
         # Connections
         self.main_window.destroyed.connect(self.gaze_overlay.close)
@@ -58,7 +60,7 @@ class GazeMappingApp(QApplication):
         self.on_data_update.connect(self.gaze_overlay.set_data)
         self.main_window.on_feature_overlay_toggled.connect(self.toggle_feature_overlay)
         self.main_window.on_gaze_overlay_toggled.connect(
-            lambda: self.gaze_overlay.setVisible(not self.gaze_overlay.isVisible())
+            lambda: self.gaze_overlay.toggle_visibility()
         )
 
         self.main_window.show()
@@ -70,17 +72,19 @@ class GazeMappingApp(QApplication):
 
     def toggle_feature_overlay(self):
         if self.feature_overlay.isVisible():
-            self.feature_overlay.setVisible(False)
+            self.feature_overlay.toggle_visibility()
             self.tracker.obj_point_map = self.original_obj_point_map.copy()
             self.tracker.params.plane_width = self.original_plane_size[0]
             self.tracker.params.plane_height = self.original_plane_size[1]
         else:
-            self.feature_overlay.setVisible(True)
+            self.feature_overlay.toggle_visibility()
             feature_values_px = self.feature_overlay.feature_values_px
-            feature_values_px = np.hstack([
-                feature_values_px,
-                np.zeros((feature_values_px.shape[0], 1)),
-            ])
+            feature_values_px = np.hstack(
+                [
+                    feature_values_px,
+                    np.zeros((feature_values_px.shape[0], 1)),
+                ]
+            )
             feature_values_px = feature_values_px.reshape(-1, 4, 3)
             self.tracker.obj_point_map = {
                 LinePositions.TOP: feature_values_px[0],

@@ -12,6 +12,7 @@ class FeatureDisplayApp(QApplication):
         self.setApplicationDisplayName("Feature Display App")
         target_screen = self.screens()[0]  # Primary screen
         self.feature_overlay = FeatureOverlay(target_screen)
+        self.feature_overlay.toggle_visibility()
 
 
 def run():

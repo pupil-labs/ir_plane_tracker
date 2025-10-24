@@ -1,3 +1,4 @@
+import platform
 import numpy.typing as npt
 from common.eye_tracking_sources import EyeTrackingData
 from PySide6.QtCore import Qt
@@ -22,7 +23,6 @@ class GazeOverlay(QWidget):
 
         self.setGeometry(target_screen.geometry())
         self.move(target_screen.geometry().x(), target_screen.geometry().y())
-        self.showFullScreen()
 
     def set_data(
         self,
@@ -49,3 +49,13 @@ class GazeOverlay(QWidget):
                 if self.gaze is not None:
                     x, y = int(self.gaze[0]), int(self.gaze[1])
                     painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
+
+    def toggle_visibility(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            if platform.system() == "Darwin":
+                self.showMaximized()
+            else:
+                self.showFullScreen()
+            self.update()
