@@ -105,7 +105,6 @@ class RulerWindow(QMainWindow):
         super().__init__()
         QShortcut(Qt.Key_Escape, self, activated=self.close)  # type: ignore
         self.setWindowTitle("Screen Ruler")
-        # screen = QApplication.primaryScreen()
         screen = QApplication.screens()[-1]
         self.setGeometry(screen.geometry())
         self.showFullScreen()
