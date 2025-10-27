@@ -3,10 +3,8 @@ import sys
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QShortcut, Qt
 from PySide6.QtWidgets import (
     QApplication,
-    QHBoxLayout,
     QLabel,
     QMainWindow,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -118,35 +116,38 @@ class RulerWindow(QMainWindow):
         mm_per_pixel_x = width_mm / width_px
         mm_per_pixel_y = height_mm / height_px
 
-        # Layout setup
-        central = QWidget()
         label = QLabel(
             f"{width_px} x {height_px} px\n{width_mm:.1f} x {height_mm:.1f} mm"
         )
         label.setAlignment(Qt.AlignCenter)
         label.setStyleSheet("color: black; font-size: 24px; background: transparent;")
-        layout = QVBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
+        self.setCentralWidget(label)
+
+        ruler_height = 20
 
         top_ruler = Ruler("top", mm_per_pixel_x, width_mm)
+        top_ruler.setParent(self)
+        top_ruler.move(0, 0)
+        top_ruler.resize(width_px, ruler_height)
+        top_ruler.show()
+
         bottom_ruler = Ruler("bottom", mm_per_pixel_x, width_mm)
+        bottom_ruler.setParent(self)
+        bottom_ruler.move(0, height_px - ruler_height)
+        bottom_ruler.resize(width_px, ruler_height)
+        bottom_ruler.show()
+
         left_ruler = Ruler("left", mm_per_pixel_y, height_mm)
+        left_ruler.setParent(self)
+        left_ruler.move(0, 0)
+        left_ruler.resize(ruler_height, height_px)
+        left_ruler.show()
+
         right_ruler = Ruler("right", mm_per_pixel_y, height_mm)
-
-        middle = QWidget()
-        middle_layout = QHBoxLayout(middle)
-        middle_layout.setContentsMargins(0, 0, 0, 0)
-        middle_layout.addWidget(left_ruler)
-        middle_layout.addStretch()
-        middle_layout.addWidget(label)
-        middle_layout.addStretch()
-        middle_layout.addWidget(right_ruler)
-
-        layout.addWidget(top_ruler)
-        layout.addWidget(middle, 1)
-        layout.addWidget(bottom_ruler)
-
-        self.setCentralWidget(central)
+        right_ruler.setParent(self)
+        right_ruler.move(width_px - ruler_height, 0)
+        right_ruler.resize(ruler_height, height_px)
+        right_ruler.show()
 
 
 def main():
