@@ -1,0 +1,9 @@
+{
+  "plane_width": 553,
+  "plane_height": 311,
+  "top_pos": [326, -16],
+  "bottom_pos": [231, 327],
+  "right_pos": [569, 171],
+  "left_pos": [-17, 84],
+  "norm_line_points": [0.0, 60.0, 80.0, 100.0]
+}

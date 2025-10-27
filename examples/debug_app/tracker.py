@@ -2,20 +2,21 @@ import numpy as np
 import numpy.typing as npt
 from PySide6.QtCore import QObject, Signal
 
-from pupil_labs.ir_plane_tracker import TrackerLineAndDots, TrackerLineAndDotsParams
+from pupil_labs.ir_plane_tracker import Tracker as TrackerAlgo
+from pupil_labs.ir_plane_tracker import TrackerParams
 
 
 class Tracker(QObject):
-    params_changed = Signal(TrackerLineAndDotsParams)
+    params_changed = Signal(TrackerParams)
 
     def __init__(self, camera_matrix: npt.NDArray[np.float64]) -> None:
         super().__init__()
-        self.tracker = TrackerLineAndDots(
+        self.tracker = TrackerAlgo(
             camera_matrix=camera_matrix,
             dist_coeffs=None,  # type: ignore
         )
 
-    def set_params(self, params: TrackerLineAndDotsParams) -> None:
+    def set_params(self, params: TrackerParams) -> None:
         if self.tracker.params != params:
             self.tracker.params = params
             self.params_changed.emit(self.tracker.params)

@@ -2,9 +2,9 @@ from time import time
 
 import cv2
 
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
-    TrackerLineAndDots,
-    TrackerLineAndDotsParams,
+from pupil_labs.ir_plane_tracker.tracker import (
+    Tracker,
+    TrackerParams,
 )
 
 
@@ -19,11 +19,9 @@ def main():
     camera_matrix, dist_coeffs = cam.get_intrinsics()
     params_json_path = "resources/neon_ipad.json"
 
-    params = TrackerLineAndDotsParams.from_json(params_json_path)
+    params = TrackerParams.from_json(params_json_path)
 
-    tracker = TrackerLineAndDots(
-        camera_matrix=camera_matrix, dist_coeffs=None, params=params
-    )
+    tracker = Tracker(camera_matrix=camera_matrix, dist_coeffs=None, params=params)
 
     frame_counter = 1006
     deltas = []

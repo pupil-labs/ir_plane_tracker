@@ -7,7 +7,7 @@ from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import TrackerLineAndDotsParams
+from pupil_labs.ir_plane_tracker.tracker import TrackerParams
 
 
 class OptimizationView(View):
@@ -21,29 +21,21 @@ class OptimizationView(View):
 
         sidebar_layout = QVBoxLayout()
 
-        self.max_cr_error = LabeledSlider(
-            "max_cr_error",
+        self.optimization_error_threshold = LabeledSlider(
+            "optimization_error_threshold",
             0,
-            20,
-            16,
+            80,
+            25,
         )
-        sidebar_layout.addWidget(self.max_cr_error)
-        self.max_feature_line_length = LabeledSlider(
-            "max_feature_line_length",
-            0,
-            500,
-            150,
-        )
-        sidebar_layout.addWidget(self.max_feature_line_length)
+        sidebar_layout.addWidget(self.optimization_error_threshold)
 
         sidebar_layout.addStretch()
         layout.addLayout(sidebar_layout, stretch=1)
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, params: TrackerLineAndDotsParams) -> None:
-        self.max_cr_error.set_value(int(params.max_cr_error * 100))
-        self.max_feature_line_length.set_value(int(params.max_feature_line_length))
+    def set_tracker_params(self, params: TrackerParams) -> None:
+        self.optimization_error_threshold.set_value(params.optimization_error_threshold)
 
     def set_data(
         self,
