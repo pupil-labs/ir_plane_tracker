@@ -8,7 +8,7 @@ from debug_app.tracker import Tracker
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
-from pupil_labs.ir_plane_tracker import LinePositions, TrackerParams
+from pupil_labs.ir_plane_tracker import FeatureOverlay, TrackerParams
 
 
 class DebugApp(QApplication):
@@ -30,8 +30,8 @@ class DebugApp(QApplication):
 
         self.main_window = AppWindow()
 
-        # self.feature_overlay = FeatureOverlay(self.screens()[-1])
-        # self.feature_overlay.toggle_visibility()
+        self.feature_overlay = FeatureOverlay(self.screens()[-1])
+        self.feature_overlay.toggle_visibility()
 
         # Connections
         self.data_changed.connect(self.main_window.set_data)
@@ -48,15 +48,19 @@ class DebugApp(QApplication):
             feature_values_px,
             np.zeros((feature_values_px.shape[0], 1)),
         ])
-        feature_values_px = feature_values_px.reshape(-1, 4, 3)
+        feature_values_px = self.feature_overlay.feature_values_px
+        (
+            self.params.top_pos,
+            self.params.right_pos,
+            self.params.bottom_pos,
+            self.params.left_pos,
+        ) = feature_values_px.reshape(-1, 2)[3::4, :]
+        self.params.norm_line_points = np.concatenate([
+            [0],
+            np.cumsum(np.diff(feature_values_px[:4, 0])),
+        ])
         self.params.plane_width = float(self.feature_overlay.screen_size_px[0])
         self.params.plane_height = float(self.feature_overlay.screen_size_px[1])
-        self.tracker.tracker.obj_point_map = {
-            LinePositions.TOP: feature_values_px[0],
-            LinePositions.RIGHT: feature_values_px[1],
-            LinePositions.BOTTOM: feature_values_px[2],
-            LinePositions.LEFT: feature_values_px[3],
-        }
 
         self.tracker.set_params(self.params)
         self.playback = False

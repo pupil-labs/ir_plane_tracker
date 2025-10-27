@@ -369,12 +369,12 @@ class Combinations:
 
 @dataclass
 class TrackerParams:
-    plane_width: float
-    plane_height: float
-    top_pos: tuple[float, float]
-    bottom_pos: tuple[float, float]
-    right_pos: tuple[float, float]
-    left_pos: tuple[float, float]
+    plane_width: float = np.nan
+    plane_height: float = np.nan
+    top_pos: tuple[float, float] = (np.nan, np.nan)
+    bottom_pos: tuple[float, float] = (np.nan, np.nan)
+    right_pos: tuple[float, float] = (np.nan, np.nan)
+    left_pos: tuple[float, float] = (np.nan, np.nan)
 
     norm_line_points: npt.NDArray[np.float64] = field(
         default_factory=lambda: np.array([0.0, 6.0, 8.0, 10.0])
