@@ -97,6 +97,13 @@ class AppWindow(QWidget):
             lambda val: tracker.update_params({"max_feature_line_length": float(val)})
         )
 
+        tracker.params_changed.connect(self.optimization_view.set_tracker_params)
+        self.optimization_view.optimization_error_threshold.valueChanged.connect(
+            lambda val: tracker.update_params({
+                "optimization_error_threshold": float(val)
+            })
+        )
+
     def set_data(
         self,
         eye_tracking_data: EyeTrackingData,

@@ -1,3 +1,4 @@
+import click
 import cv2
 import numpy as np
 import qdarktheme
@@ -7,17 +8,13 @@ from debug_app.tracker import Tracker
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
-from pupil_labs.ir_plane_tracker import (
-    TrackerLineAndDotsParams,
-)
-from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import LinePositions
+from pupil_labs.ir_plane_tracker import LinePositions, TrackerParams
 
 
 class DebugApp(QApplication):
     data_changed = Signal(object, object, object)
 
-    def __init__(self, params_path=None):
+    def __init__(self, params_path, marker_config_path):
         super().__init__()
         self.setApplicationDisplayName("Debug App")
         qdarktheme.setup_theme()
@@ -33,8 +30,8 @@ class DebugApp(QApplication):
 
         self.main_window = AppWindow()
 
-        self.feature_overlay = FeatureOverlay(self.screens()[-1])
-        self.feature_overlay.toggle_visibility()
+        # self.feature_overlay = FeatureOverlay(self.screens()[-1])
+        # self.feature_overlay.toggle_visibility()
 
         # Connections
         self.data_changed.connect(self.main_window.set_data)
@@ -45,26 +42,23 @@ class DebugApp(QApplication):
         self.main_window.next_frame_clicked.connect(self.update_data)
 
         # Data initialization
-        self.params = TrackerLineAndDotsParams.from_json(
-            params_path or "resources/neon_artificial.json"
-        )
+        self.params = TrackerParams.from_json(params_path, marker_config_path)
         feature_values_px = self.feature_overlay.feature_values_px
-        feature_values_px = np.hstack(
-            [
-                feature_values_px,
-                np.zeros((feature_values_px.shape[0], 1)),
-            ]
-        )
+        feature_values_px = np.hstack([
+            feature_values_px,
+            np.zeros((feature_values_px.shape[0], 1)),
+        ])
         feature_values_px = feature_values_px.reshape(-1, 4, 3)
         self.params.plane_width = float(self.feature_overlay.screen_size_px[0])
         self.params.plane_height = float(self.feature_overlay.screen_size_px[1])
-        self.tracker.set_params(self.params)
         self.tracker.tracker.obj_point_map = {
             LinePositions.TOP: feature_values_px[0],
             LinePositions.RIGHT: feature_values_px[1],
             LinePositions.BOTTOM: feature_values_px[2],
             LinePositions.LEFT: feature_values_px[3],
         }
+
+        self.tracker.set_params(self.params)
         self.playback = False
         self.last_data = None
 
@@ -88,8 +82,6 @@ class DebugApp(QApplication):
             self.update_data()
 
         plane_localization = self.tracker(self.last_data.scene)
-        # self.tracker.debug.visualize()
-        # cv2.waitKey(1)
         assert self.last_data is not None
         self.data_changed.emit(self.last_data, plane_localization, self.tracker.debug)
 
@@ -99,14 +91,27 @@ class DebugApp(QApplication):
         return ret
 
 
-def run():
+@click.command()
+@click.option(
+    "--params_path",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to tracker parameters JSON file.",
+)
+@click.option(
+    "--marker_config_path",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to marker configuration file.",
+)
+def main(params_path, marker_config_path):
     import sys
 
+    sys.argv = [sys.argv[0]]
     app = DebugApp(
-        params_path=sys.argv[1] if len(sys.argv) > 1 else None,
+        params_path=params_path,
+        marker_config_path=marker_config_path,
     )
     app.exec()
 
 
 if __name__ == "__main__":
-    run()
+    main()

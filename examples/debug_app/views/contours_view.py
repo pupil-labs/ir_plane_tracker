@@ -6,7 +6,7 @@ from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import TrackerLineAndDotsParams
+from pupil_labs.ir_plane_tracker.tracker import TrackerParams
 
 
 class ContoursView(View):
@@ -42,7 +42,7 @@ class ContoursView(View):
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, params: TrackerLineAndDotsParams) -> None:
+    def set_tracker_params(self, params: TrackerParams) -> None:
         self.min_contour_area_line.set_value(params.min_contour_area_line)
         self.max_contour_area_line.set_value(params.max_contour_area_line)
         self.min_contour_area_ellipse.set_value(params.min_contour_area_ellipse)

@@ -4,7 +4,7 @@ from time import time
 import cv2
 
 import pupil_labs.neon_recording as plr
-from pupil_labs.ir_plane_tracker import TrackerLineAndDots, TrackerLineAndDotsParams
+from pupil_labs.ir_plane_tracker import Tracker, TrackerParams
 
 
 def main():
@@ -26,11 +26,9 @@ def main():
     dist_coeffs = calibration.scene_distortion_coefficients
 
     params_json_path = "neon_ipad_small.json"
-    params = TrackerLineAndDotsParams.from_json(params_json_path)
+    params = TrackerParams.from_json(params_json_path)
 
-    tracker = TrackerLineAndDots(
-        camera_matrix=camera_matrix, dist_coeffs=None, params=params
-    )
+    tracker = Tracker(camera_matrix=camera_matrix, dist_coeffs=None, params=params)
     screenshot = cv2.imread("offline_recording/data/screenshot.png")
 
     deltas = []

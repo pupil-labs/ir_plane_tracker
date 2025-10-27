@@ -1,7 +1,7 @@
 from common.eye_tracking_sources import EyeTrackingData
 from PySide6.QtWidgets import QWidget
 
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
+from pupil_labs.ir_plane_tracker.tracker import (
     DebugData,
     PlaneLocalization,
 )

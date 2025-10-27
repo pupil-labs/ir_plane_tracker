@@ -1,16 +1,15 @@
-from pupil_labs.ir_plane_tracker.tracker import IRPlaneTracker, IRPlaneTrackerParams
-from pupil_labs.ir_plane_tracker.tracker_line_and_dots import (
+from pupil_labs.ir_plane_tracker.tracker import (
     DebugData,
+    LinePositions,
     PlaneLocalization,
-    TrackerLineAndDots,
-    TrackerLineAndDotsParams,
+    Tracker,
+    TrackerParams,
 )
 
 __all__ = [
     "DebugData",
-    "IRPlaneTracker",
-    "IRPlaneTrackerParams",
+    "LinePositions",
     "PlaneLocalization",
-    "TrackerLineAndDots",
-    "TrackerLineAndDotsParams",
+    "Tracker",
+    "TrackerParams",
 ]
