@@ -2,18 +2,19 @@ import cv2
 import numpy as np
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
-from debug_app.views import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
 from pupil_labs.ir_plane_tracker.tracker import TrackerParams
 
+from .view import View
+
 
 class FeatureLinesView(View):
     name = "Feature Lines"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
@@ -40,6 +41,23 @@ class FeatureLinesView(View):
         layout.addLayout(sidebar_layout, stretch=1)
 
         self.setLayout(layout)
+
+        self.make_connections(tracker_param_changed)
+
+    def make_connections(self, tracker_param_changed) -> None:
+        for slider in self.findChildren(LabeledSlider):
+            if slider.label.text() == "max_cr_error":
+                slider.valueChanged.connect(
+                    lambda val, s=slider: tracker_param_changed.emit(
+                        s.label.text(), val / 100.0
+                    )
+                )
+            else:
+                slider.valueChanged.connect(
+                    lambda val, s=slider: tracker_param_changed.emit(
+                        s.label.text(), val
+                    )
+                )
 
     def set_tracker_params(self, params: TrackerParams) -> None:
         self.max_cr_error.set_value(int(params.max_cr_error * 100))

@@ -1,25 +1,26 @@
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
-from debug_app.views import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.tracker import TrackerParams
+
+from .view import View
 
 
 class ThresholdingView(View):
     name = "Thresholding"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
+
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
         layout.addWidget(self.image_view, stretch=5)
 
         sidebar_layout = QVBoxLayout()
 
-        self.thresh_c = LabeledSlider("c_thresh", 5, 80, 40)
+        self.thresh_c = LabeledSlider("thresh_c", 5, 80, 40)
         sidebar_layout.addWidget(self.thresh_c)
 
         sidebar_layout.addStretch()
@@ -27,8 +28,7 @@ class ThresholdingView(View):
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, params: TrackerParams) -> None:
-        self.thresh_c.set_value(params.thresh_c)
+        self.make_connections(tracker_param_changed)
 
     def set_data(
         self,

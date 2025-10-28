@@ -1,19 +1,20 @@
 import cv2
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
-from debug_app.views import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.tracker import TrackerParams
+
+from .view import View
 
 
 class ContoursView(View):
     name = "Contours"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
+
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
         layout.addWidget(self.image_view, stretch=5)
@@ -42,11 +43,7 @@ class ContoursView(View):
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, params: TrackerParams) -> None:
-        self.min_contour_area_line.set_value(params.min_contour_area_line)
-        self.max_contour_area_line.set_value(params.max_contour_area_line)
-        self.min_contour_area_ellipse.set_value(params.min_contour_area_ellipse)
-        self.max_contour_area_ellipse.set_value(params.max_contour_area_ellipse)
+        self.make_connections(tracker_param_changed)
 
     def set_data(
         self,

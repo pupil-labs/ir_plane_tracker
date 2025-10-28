@@ -4,17 +4,18 @@ import numpy as np
 import qdarktheme
 from common import eye_tracking_sources
 from debug_app.app_window import AppWindow
-from debug_app.tracker import Tracker
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QApplication
 
-from pupil_labs.ir_plane_tracker import FeatureOverlay, TrackerParams
+from pupil_labs.ir_plane_tracker import TrackerParams
+from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
+from pupil_labs.ir_plane_tracker.tracker_wrapper import TrackerWrapper
 
 
 class DebugApp(QApplication):
     data_changed = Signal(object, object, object)
 
-    def __init__(self, params_path, marker_config_path, feature_overlay=False):
+    def __init__(self, params_path, marker_config_path, feature_overlay=True):
         super().__init__()
         self.setApplicationDisplayName("Debug App")
         qdarktheme.setup_theme()
@@ -26,21 +27,28 @@ class DebugApp(QApplication):
 
         self.camera_matrix = self.eye_tracking_source.scene_intrinsics.camera_matrix
         self.dist_coeffs = self.eye_tracking_source.scene_intrinsics.distortion_coeffs
-        self.tracker = Tracker(self.camera_matrix)
+        self.tracker = TrackerWrapper(self.camera_matrix)
 
         self.main_window = AppWindow()
 
         if feature_overlay:
-            self.feature_overlay = FeatureOverlay(self.screens()[-1])
+            self.feature_overlay = FeatureOverlay(
+                self.screens()[-1], tracker=self.tracker
+            )
             self.feature_overlay.toggle_visibility()
 
         # Connections
         self.data_changed.connect(self.main_window.set_data)
-        self.main_window.make_connections(self.tracker)
+
         self.main_window.playback_toggled.connect(
             lambda: setattr(self, "playback", not self.playback)
         )
         self.main_window.next_frame_clicked.connect(self.update_data)
+        self.main_window.tracker_param_changed.connect(
+            lambda key, val: self.tracker.update_params({key: val})
+        )
+
+        self.tracker.params_changed.connect(self.main_window.set_tracker_params)
 
         # Data initialization
         self.params = TrackerParams.from_json(params_path, marker_config_path)

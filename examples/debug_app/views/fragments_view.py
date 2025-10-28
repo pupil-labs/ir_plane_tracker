@@ -2,19 +2,20 @@ import cv2
 import numpy as np
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
-from debug_app.views import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.tracker import TrackerParams
+
+from .view import View
 
 
 class FragmentsView(View):
     name = "Fragments"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
+
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
         layout.addWidget(self.image_view, stretch=5)
@@ -35,12 +36,7 @@ class FragmentsView(View):
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, params: TrackerParams) -> None:
-        self.fragments_max_projection_error.set_value(
-            params.fragments_max_projection_error
-        )
-        self.fragments_min_length.set_value(params.fragments_min_length)
-        self.fragments_max_length.set_value(params.fragments_max_length)
+        self.make_connections(tracker_param_changed)
 
     def set_data(
         self,
