@@ -96,12 +96,19 @@ class DebugApp(QApplication):
     type=click.Path(exists=True, dir_okay=False),
     help="Path to tracker parameters JSON file.",
 )
-def main(params_path):
+@click.option(
+    "--feature_overlay",
+    is_flag=True,
+    default=False,
+    help="Enable feature overlay display.",
+)
+def main(params_path, feature_overlay):
     import sys
 
     sys.argv = [sys.argv[0]]
     app = DebugApp(
         params_path=params_path,
+        feature_overlay=feature_overlay,
     )
     app.exec()
 
