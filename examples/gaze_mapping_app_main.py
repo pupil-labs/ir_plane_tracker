@@ -55,13 +55,13 @@ class GazeMappingApp(QApplication):
         self.gaze_overlay.toggle_visibility()
 
         # Connections
-        self.main_window.destroyed.connect(self.gaze_overlay.close)
-        self.main_window.destroyed.connect(self.feature_overlay.close)
+        self.main_window.close_requested.connect(self.close_app)
+        # self.main_window.destroyed.connect(self.feature_overlay.close)
 
         self.data_changed.connect(self.main_window.set_data)
         self.data_changed.connect(self.gaze_overlay.set_data)
-        self.main_window.on_feature_overlay_toggled.connect(self.toggle_feature_overlay)
-        self.main_window.on_gaze_overlay_toggled.connect(
+        self.main_window.feature_overlay_toggled.connect(self.toggle_feature_overlay)
+        self.main_window.gaze_overlay_toggled.connect(
             lambda: self.gaze_overlay.toggle_visibility()
         )
 
@@ -71,6 +71,17 @@ class GazeMappingApp(QApplication):
         self.poll_timer.setInterval(int(1000 / 30))
         self.poll_timer.timeout.connect(self.poll)
         self.poll_timer.start()
+
+    def close_app(self):
+        print("CLOSING APP")
+        self.feature_overlay.hide()
+        self.feature_overlay.close()
+        self.gaze_overlay.hide()
+        self.gaze_overlay.close()
+        self.eye_tracking_source.close()
+        self.main_window.hide()
+        self.main_window.close()
+        self.quit()
 
     def toggle_feature_overlay(self):
         if self.feature_overlay.isVisible():
