@@ -89,3 +89,11 @@ It's usage is demonstrated in the `examples/gaze_mapping_app_main.py` example ap
 Alternatively, you can also display the markers and determine the input parameters manually. An image of the marker is available [here](https://github.com/pupil-labs/ir_plane_tracker/blob/main/feature.png).
 
 ![Marker Example](feature.png)
+
+# Optimizing Performance
+
+Lighting conditions and camera exposure settings play a role in optimizing tracking performance. Ideally, the environment is well illuminated, such that the scene camera captures well exposed images.
+
+If the camera is set to auto-exposure, setting it to "Highlights" typically yields better results.
+
+If the environment is not bright enough, the auto-exposure will use exposure times that can lead to motion blur, which negatively impacts tracking performance. If this is an issue, it is advisable to either improve the lighting conditions or switch to manual exposure settings and set a fixed exposure time that avoids motion blur. A manual exposure value <120 typically reduced motion blur sufficiently to deal with typical head movements.
