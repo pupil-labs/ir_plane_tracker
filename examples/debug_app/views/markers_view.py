@@ -1,18 +1,17 @@
+import cv2
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
+from debug_app.views.view import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.ir_plane_tracker.feature_overlay import MarkerSpec
-
-from .view import View
 
 
 class MarkersView(View):
     name = "Markers"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
@@ -34,10 +33,7 @@ class MarkersView(View):
 
         self.setLayout(layout)
 
-    def set_tracker_params(self, spec: MarkerSpec) -> None:
-        self.padding_mm.set_value(int(spec.padding_mm))
-        self.circle_diameter_mm.set_value(int(spec.circle_diameter_mm))
-        self.line_thickness_mm.set_value(int(spec.line_thickness_mm))
+        self.make_connections(tracker_param_changed)
 
     def set_data(
         self,
@@ -46,5 +42,10 @@ class MarkersView(View):
         debug: DebugData,
     ):
         vis = debug.img_thresholded.copy()
+
+        if plane_localization is not None:
+            cv2.polylines(
+                vis, [plane_localization.corners.astype(int)], True, (255, 0, 0), 3
+            )
 
         self.image_view.set_image(vis)

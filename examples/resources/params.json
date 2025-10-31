@@ -19,7 +19,16 @@
   "max_cr_error": 0.1,
   "max_feature_line_length": 200.0,
   "min_feature_line_count": 3,
-  "max_line_length": 200.0,
   "optimization_error_threshold": 25.0,
+  "plane_width": 553,
+  "plane_height": 311,
+  "top_pos": [326, -16],
+  "bottom_pos": [231, 327],
+  "right_pos": [569, 171],
+  "left_pos": [-17, 84],
+  "feature_point_positions_mm": [0.0, 20.0, 40.0, 100.0],
+  "padding_mm": 4,
+  "circle_diameter_mm": 4,
+  "line_thickness_mm": 2,
   "debug": true
 }

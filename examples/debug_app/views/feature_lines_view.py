@@ -36,6 +36,13 @@ class FeatureLinesView(View):
             150,
         )
         sidebar_layout.addWidget(self.max_feature_line_length)
+        self.feature_line_max_projection_error = LabeledSlider(
+            "feature_line_max_projection_error",
+            0,
+            10,
+            2,
+        )
+        sidebar_layout.addWidget(self.feature_line_max_projection_error)
 
         sidebar_layout.addStretch()
         layout.addLayout(sidebar_layout, stretch=1)

@@ -15,10 +15,10 @@ class View(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-    def make_connections(self, tracker_param_changed) -> None:
+    def make_connections(self, signal) -> None:
         for slider in self.findChildren(LabeledSlider):
             slider.valueChanged.connect(
-                lambda val, s=slider: tracker_param_changed.emit(s.label.text(), val)
+                lambda val, s=slider: signal.emit(s.label.text(), val)
             )
 
     def set_tracker_params(self, params: TrackerParams) -> None:

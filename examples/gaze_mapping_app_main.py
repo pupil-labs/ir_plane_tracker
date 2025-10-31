@@ -1,6 +1,5 @@
 import click
 import cv2
-import numpy as np
 from common import eye_tracking_sources
 from gaze_mapping_app.app_window import MainWindow
 from gaze_mapping_app.gaze_overlay import GazeOverlay
@@ -8,20 +7,17 @@ from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
-from pupil_labs.ir_plane_tracker import (
-    Tracker,
-    TrackerParams,
-)
+from pupil_labs.ir_plane_tracker import Tracker
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
+from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
 
 
 class GazeMappingApp(QApplication):
-    on_data_update = Signal(object, object, object, object)
+    data_changed = Signal(object, object, object, object)
 
     def __init__(
         self,
         params_path: str,
-        marker_config_path: str,
         neon_ip: str,
         neon_port: int = 8080,
     ):
@@ -32,7 +28,7 @@ class GazeMappingApp(QApplication):
         )
         self.camera_matrix = self.eye_tracking_source.scene_intrinsics.camera_matrix
         self.dist_coeffs = self.eye_tracking_source.scene_intrinsics.distortion_coeffs
-        self.params = TrackerParams.from_json(params_path, marker_config_path)
+        self.params = TrackerParamsWrapper.from_json(params_path)
         self.tracker = Tracker(
             camera_matrix=self.camera_matrix,
             dist_coeffs=None,
@@ -45,7 +41,7 @@ class GazeMappingApp(QApplication):
             "left_pos": self.tracker.params.left_pos,
             "plane_width": self.tracker.params.plane_width,
             "plane_height": self.tracker.params.plane_height,
-            "norm_line_points": self.tracker.params.norm_line_points,
+            "feature_point_positions_mm": self.tracker.params.feature_point_positions_mm,  # noqa: E501
         }
 
         screens = QGuiApplication.screens()
@@ -53,7 +49,7 @@ class GazeMappingApp(QApplication):
         self.main_window = MainWindow(target_screen)
         self.main_window.setMinimumSize(1600, 600)
 
-        self.feature_overlay = FeatureOverlay(target_screen)
+        self.feature_overlay = FeatureOverlay(target_screen, self.params)
         self.toggle_feature_overlay()
         self.gaze_overlay = GazeOverlay(target_screen)
         self.gaze_overlay.toggle_visibility()
@@ -62,8 +58,8 @@ class GazeMappingApp(QApplication):
         self.main_window.destroyed.connect(self.gaze_overlay.close)
         self.main_window.destroyed.connect(self.feature_overlay.close)
 
-        self.on_data_update.connect(self.main_window.set_data)
-        self.on_data_update.connect(self.gaze_overlay.set_data)
+        self.data_changed.connect(self.main_window.set_data)
+        self.data_changed.connect(self.gaze_overlay.set_data)
         self.main_window.on_feature_overlay_toggled.connect(self.toggle_feature_overlay)
         self.main_window.on_gaze_overlay_toggled.connect(
             lambda: self.gaze_overlay.toggle_visibility()
@@ -79,36 +75,21 @@ class GazeMappingApp(QApplication):
     def toggle_feature_overlay(self):
         if self.feature_overlay.isVisible():
             self.feature_overlay.toggle_visibility()
-            self.tracker.params.top_pos = self.original_marker_config["top_pos"]
-            self.tracker.params.right_pos = self.original_marker_config["right_pos"]
-            self.tracker.params.bottom_pos = self.original_marker_config["bottom_pos"]
-            self.tracker.params.left_pos = self.original_marker_config["left_pos"]
-            self.tracker.params.plane_width = self.original_marker_config["plane_width"]
-            self.tracker.params.plane_height = self.original_marker_config[
-                "plane_height"
-            ]
-            self.tracker.params.norm_line_points = self.original_marker_config[
-                "norm_line_points"
-            ]
+            self.params.update_params({
+                "top_pos": self.original_marker_config["top_pos"],
+                "right_pos": self.original_marker_config["right_pos"],
+                "bottom_pos": self.original_marker_config["bottom_pos"],
+                "left_pos": self.original_marker_config["left_pos"],
+                "plane_width": self.original_marker_config["plane_width"],
+                "plane_height": self.original_marker_config["plane_height"],
+                "feature_point_positions_mm": self.original_marker_config[
+                    "feature_point_positions_mm"
+                ],
+            })
+
         else:
             self.feature_overlay.toggle_visibility()
-            feature_values_px = self.feature_overlay.feature_values_px
-            (
-                self.tracker.params.top_pos,
-                self.tracker.params.right_pos,
-                self.tracker.params.bottom_pos,
-                self.tracker.params.left_pos,
-            ) = feature_values_px.reshape(-1, 2)[3::4, :]
-            self.tracker.params.norm_line_points = np.concatenate([
-                [0],
-                np.cumsum(np.diff(feature_values_px[:4, 0])),
-            ])
-            self.tracker.params.plane_width = float(
-                self.feature_overlay.screen_size_px[0]
-            )
-            self.tracker.params.plane_height = float(
-                self.feature_overlay.screen_size_px[1]
-            )
+            self.feature_overlay.update_marker_positions()
 
     def poll(self):
         eye_tracking_data = self.eye_tracking_source.get_sample()
@@ -116,8 +97,6 @@ class GazeMappingApp(QApplication):
             eye_tracking_data.scene, self.camera_matrix, self.dist_coeffs
         )  # type: ignore
         plane_localization = self.tracker(eye_tracking_data.scene)
-        # self.tracker.debug.visualize()
-        # cv2.waitKey(0)
         gaze_mapped = None
         if plane_localization is not None:
             gaze = eye_tracking_data.gaze
@@ -126,7 +105,7 @@ class GazeMappingApp(QApplication):
                 gaze_mapped = gaze_mapped / gaze_mapped[2]
                 gaze_mapped = gaze_mapped[:2]
 
-        self.on_data_update.emit(
+        self.data_changed.emit(
             eye_tracking_data, plane_localization, self.tracker.debug, gaze_mapped
         )
 
@@ -142,20 +121,14 @@ class GazeMappingApp(QApplication):
     type=click.Path(exists=True, dir_okay=False),
     help="Path to tracker parameters JSON file.",
 )
-@click.option(
-    "--marker_config_path",
-    type=click.Path(exists=True, dir_okay=False),
-    help="Path to marker configuration file.",
-)
 @click.option("--neon_ip", type=str, help="IP address of the Neon device.")
 @click.option("--neon_port", type=int, default=8080, help="Port of the Neon device.")
-def main(params_path, marker_config_path, neon_ip, neon_port):
+def main(params_path, neon_ip, neon_port):
     import sys
 
     sys.argv = [sys.argv[0]]
     app = GazeMappingApp(
         params_path=params_path,
-        marker_config_path=marker_config_path,
         neon_ip=neon_ip,
         neon_port=neon_port,
     )
