@@ -1,16 +1,21 @@
+import platform
+
 import numpy as np
 import numpy.typing as npt
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QScreen
 from PySide6.QtWidgets import QWidget
-import platform
+
+from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
 
 
 class FeatureOverlay(QWidget):
-    feature_params_changed = Signal(object)
-
-    def __init__(self, target_screen: QScreen, parent=None):
+    def __init__(
+        self, target_screen: QScreen, params: TrackerParamsWrapper, parent=None
+    ):
         super().__init__(parent)
+        self._params = params
+        self.feature_point_positions_mm = params.feature_point_positions_mm
 
         self.setWindowFlag(Qt.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowStaysOnTopHint)
@@ -27,37 +32,44 @@ class FeatureOverlay(QWidget):
         self.screen_size_mm = target_screen.physicalSize().toTuple()
         self.screen_size_px = target_screen.size().toTuple()
         self.mm2px = self.screen_size_px[0] / self.screen_size_mm[0]
-        self.__padding_mm = 5
-        self.__circle_diameter_mm = 7
-        self.__line_thickness_mm = 7
-        self.__norm_points_mm = np.array([0, 20, 40, 100])
+
+    def update_marker_positions(self) -> None:
+        params = {
+            "top_pos": tuple(self.feature_composition_px.reshape(-1, 4, 2)[0][0]),
+            "right_pos": tuple(self.feature_composition_px.reshape(-1, 4, 2)[1][0]),
+            "bottom_pos": tuple(self.feature_composition_px.reshape(-1, 4, 2)[2][0]),
+            "left_pos": tuple(self.feature_composition_px.reshape(-1, 4, 2)[3][0]),
+            "feature_point_positions_mm": self.feature_point_positions_px,
+            "plane_width": float(self.screen_size_px[0]),
+            "plane_height": float(self.screen_size_px[1]),
+        }
+        self._params.update_params(params)
+        self.update()
 
     @property
-    def norm_points_px(self) -> npt.NDArray[np.int64]:
-        return (self.__norm_points_mm * self.mm2px).astype(np.int64)
+    def feature_point_positions_px(self) -> npt.NDArray[np.int64]:
+        return (self.feature_point_positions_mm * self.mm2px).astype(np.int64)
 
     @property
     def padding_px(self) -> int:
-        return int(self.__padding_mm * self.mm2px)
+        return int(self._params.padding_mm * self.mm2px)
 
     @property
     def circle_radius_px(self) -> int:
-        return int(self.__circle_diameter_mm / 2 * self.mm2px)
+        return int(self._params.circle_diameter_mm / 2 * self.mm2px)
 
     @property
     def line_thickness_px(self) -> int:
-        return int(self.__line_thickness_mm * self.mm2px)
+        return int(self._params.line_thickness_mm * self.mm2px)
 
     @property
-    def feature_values_px(self) -> np.ndarray:
-        return np.concatenate(
-            [
-                self._top_feature_px[::-1],
-                self._right_feature_px[::-1],
-                self._bottom_feature_px[::-1],
-                self._left_feature_px[::-1],
-            ]
-        )
+    def feature_composition_px(self) -> np.ndarray:
+        return np.concatenate([
+            self._top_feature_px,
+            self._right_feature_px,
+            self._bottom_feature_px,
+            self._left_feature_px,
+        ])
 
     @property
     def feature_thickness_px(self):
@@ -65,12 +77,11 @@ class FeatureOverlay(QWidget):
 
     @property
     def _top_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack(
-            [
-                self.norm_points_px.max() - self.norm_points_px[::-1],
-                np.zeros(4),
-            ]
-        )
+        points = np.column_stack([
+            self.feature_point_positions_px.max()
+            - self.feature_point_positions_px[::-1],
+            np.zeros(4),
+        ])
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] += self.feature_thickness_px / 2 + self.padding_px
@@ -79,12 +90,10 @@ class FeatureOverlay(QWidget):
 
     @property
     def _bottom_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack(
-            [
-                self.norm_points_px,
-                np.ones(4) * self.screen_size_px[1],
-            ]
-        )
+        points = np.column_stack([
+            self.feature_point_positions_px,
+            np.ones(4) * self.screen_size_px[1],
+        ])
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] -= self.feature_thickness_px / 2 + self.padding_px
@@ -93,12 +102,10 @@ class FeatureOverlay(QWidget):
 
     @property
     def _left_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack(
-            [
-                np.zeros(4),
-                self.norm_points_px,
-            ]
-        )
+        points = np.column_stack([
+            np.zeros(4),
+            self.feature_point_positions_px,
+        ])
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] += self.feature_thickness_px / 2 + self.padding_px
@@ -107,12 +114,11 @@ class FeatureOverlay(QWidget):
 
     @property
     def _right_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack(
-            [
-                np.ones(4) * self.screen_size_px[0],
-                self.norm_points_px.max() - self.norm_points_px[::-1],
-            ]
-        )
+        points = np.column_stack([
+            np.ones(4) * self.screen_size_px[0],
+            self.feature_point_positions_px.max()
+            - self.feature_point_positions_px[::-1],
+        ])
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] -= self.feature_thickness_px / 2 + self.padding_px
@@ -158,7 +164,7 @@ class FeatureOverlayPainter:
             - self.feature_overlay.circle_radius_px
         )
         width = (
-            max(self.feature_overlay.norm_points_px)
+            max(self.feature_overlay.feature_point_positions_px)
             + 2 * self.feature_overlay.padding_px
             + self.feature_overlay.circle_radius_px
         )
@@ -189,7 +195,7 @@ class FeatureOverlayPainter:
             + 2 * self.feature_overlay.padding_px
         )
         height = (
-            max(self.feature_overlay.norm_points_px)
+            max(self.feature_overlay.feature_point_positions_px)
             + 2 * self.feature_overlay.padding_px
             + self.feature_overlay.circle_radius_px
         )
@@ -209,7 +215,7 @@ class FeatureOverlayPainter:
         p = np.array(p4) - self.feature_overlay.padding_px
         p[1] -= self.feature_overlay.circle_radius_px
         width = (
-            max(self.feature_overlay.norm_points_px)
+            max(self.feature_overlay.feature_point_positions_px)
             + 2 * self.feature_overlay.padding_px
             + self.feature_overlay.circle_radius_px
         )
@@ -237,7 +243,7 @@ class FeatureOverlayPainter:
             + 2 * self.feature_overlay.padding_px
         )
         height = (
-            max(self.feature_overlay.norm_points_px)
+            max(self.feature_overlay.feature_point_positions_px)
             + 2 * self.feature_overlay.padding_px
             + self.feature_overlay.circle_radius_px
         )

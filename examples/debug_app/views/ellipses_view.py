@@ -1,18 +1,19 @@
 import cv2
 from common.eye_tracking_sources import EyeTrackingData
 from common.widgets.scaled_image_view import ScaledImageView
-from debug_app.views import View
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
 from pupil_labs.ir_plane_tracker.tracker import TrackerParams
 
+from .view import View
+
 
 class EllipseView(View):
     name = "Ellipses"
 
-    def __init__(self, parent=None):
+    def __init__(self, tracker_param_changed, parent=None):
         super().__init__(parent)
         self.image_view = ScaledImageView(self)
         layout = QHBoxLayout()
@@ -23,7 +24,7 @@ class EllipseView(View):
         self.min_ellipse_size = LabeledSlider("min_ellipse_size", 0, 50, 8)
         sidebar_layout.addWidget(self.min_ellipse_size)
         self.max_ellipse_aspect_ratio = LabeledSlider(
-            "max_ellipse_aspect_ratio", 0, 200, 60
+            "max_ellipse_aspect_ratio", 0, 20, 12
         )
         sidebar_layout.addWidget(self.max_ellipse_aspect_ratio)
 
@@ -32,9 +33,28 @@ class EllipseView(View):
 
         self.setLayout(layout)
 
+        self.make_connections(tracker_param_changed)
+
+    def make_connections(self, tracker_param_changed) -> None:
+        for slider in self.findChildren(LabeledSlider):
+            if slider.label.text() == "max_ellipse_aspect_ratio":
+                slider.valueChanged.connect(
+                    lambda val, s=slider: tracker_param_changed.emit(
+                        s.label.text(), val / 10.0
+                    )
+                )
+            else:
+                slider.valueChanged.connect(
+                    lambda val, s=slider: tracker_param_changed.emit(
+                        s.label.text(), val
+                    )
+                )
+
     def set_tracker_params(self, params: TrackerParams) -> None:
         self.min_ellipse_size.set_value(params.min_ellipse_size)
-        self.max_ellipse_aspect_ratio.set_value(params.max_ellipse_aspect_ratio)
+        self.max_ellipse_aspect_ratio.set_value(
+            int(params.max_ellipse_aspect_ratio * 10)
+        )
 
     def set_data(
         self,

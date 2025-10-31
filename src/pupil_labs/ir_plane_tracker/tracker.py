@@ -376,9 +376,13 @@ class TrackerParams:
     right_pos: tuple[float, float] = (np.nan, np.nan)
     left_pos: tuple[float, float] = (np.nan, np.nan)
 
-    norm_line_points: npt.NDArray[np.float64] = field(
+    feature_point_positions_mm: npt.NDArray[np.float64] = field(
         default_factory=lambda: np.array([0.0, 6.0, 8.0, 10.0])
     )
+    padding_mm: float = 5.0
+    circle_diameter_mm: float = 6.0
+    line_thickness_mm: float = 3.0
+
     img_size_factor: float = 1.0
     thresh_c: int = 45
     thresh_half_kernel_size: int = 20
@@ -403,7 +407,7 @@ class TrackerParams:
     max_cr_error: float = 0.12
     max_feature_line_length: float = 150.0
     min_feature_line_count: int = 3
-    max_line_length: float = 200.0
+    feature_line_max_projection_error: float = 2.0
 
     optimization_error_threshold: float = 15.0
     debug: bool = False
@@ -430,36 +434,23 @@ class TrackerParams:
             self.fragments_max_projection_error * self.img_size_factor
         )
         self.min_ellipse_size = int(self.min_ellipse_size * self.img_size_factor)
-        self.max_line_length = self.max_line_length * self.img_size_factor
         self.optimization_error_threshold = (
             self.optimization_error_threshold * self.img_size_factor
         )
 
     @staticmethod
-    def from_json(params_path: str, marker_config_path: str) -> "TrackerParams":
+    def from_json(params_path: str) -> "TrackerParams":
         import json
 
         with open(params_path) as f:
             params = json.load(f)
 
-        with open(marker_config_path) as f:
-            marker_config = json.load(f)
-
-        if "norm_line_points" in marker_config:
-            marker_config["norm_line_points"] = np.array(
-                marker_config["norm_line_points"]
+        if "feature_point_positions_mm" in params:
+            params["feature_point_positions_mm"] = np.array(
+                params["feature_point_positions_mm"]
             )
-        params.update(marker_config)
-        params = TrackerParams(**params)
 
-        return params
-
-    def update_from_dict(self, params: dict) -> None:
-        for key, value in params.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                raise KeyError(f"Unknown parameter: {key}")
+        return TrackerParams(**params)
 
     def __eq__(self, obj: object) -> bool:
         if not isinstance(obj, TrackerParams):
@@ -733,12 +724,13 @@ class DebugData:
     def _visualize_feature_lines(self):
         vis = self.img_thresholded.copy()
         if self.feature_lines_candidates is not None and self.cr_values is not None:
+            target_cr = Tracker.cross_ratio(self.params.feature_point_positions_mm)
             for line, cr in zip(
                 self.feature_lines_candidates, self.cr_values, strict=False
             ):
                 color = (
                     (0, 0, 255)
-                    if abs(cr - 0.375) > self.params.max_cr_error
+                    if abs(cr - target_cr) > self.params.max_cr_error
                     else (0, 255, 0)
                 )
                 cv2.polylines(
@@ -887,37 +879,35 @@ class Tracker:
 
     @property
     def obj_point_map(self) -> dict[LinePositions, npt.NDArray[np.float64]]:
-        feature_length = np.max(self.params.norm_line_points)
         obj_map = {
             LinePositions.TOP: np.column_stack((
-                self.params.norm_line_points - feature_length + self.params.top_pos[0],
-                np.zeros_like(self.params.norm_line_points) + self.params.top_pos[1],
-                np.zeros_like(self.params.norm_line_points),
+                -self.params.feature_point_positions_mm[::-1] + self.params.top_pos[0],
+                np.zeros_like(self.params.feature_point_positions_mm)
+                + self.params.top_pos[1],
+                np.zeros_like(self.params.feature_point_positions_mm),
             )),
             LinePositions.BOTTOM: np.column_stack((
-                (
-                    feature_length
-                    - self.params.norm_line_points[::-1]
-                    + self.params.bottom_pos[0]
-                )[::-1],
-                np.zeros_like(self.params.norm_line_points) + self.params.bottom_pos[1],
-                np.zeros_like(self.params.norm_line_points),
+                (self.params.feature_point_positions_mm + self.params.bottom_pos[0])[
+                    ::-1
+                ],
+                np.zeros_like(self.params.feature_point_positions_mm)
+                + self.params.bottom_pos[1],
+                np.zeros_like(self.params.feature_point_positions_mm),
             )),
             LinePositions.LEFT: np.column_stack((
-                np.zeros_like(self.params.norm_line_points) + self.params.left_pos[0],
-                (
-                    feature_length
-                    - self.params.norm_line_points[::-1]
-                    + self.params.left_pos[1]
-                )[::-1],
-                np.zeros_like(self.params.norm_line_points),
+                np.zeros_like(self.params.feature_point_positions_mm)
+                + self.params.left_pos[0],
+                (self.params.feature_point_positions_mm + self.params.left_pos[1])[
+                    ::-1
+                ],
+                np.zeros_like(self.params.feature_point_positions_mm),
             )),
             LinePositions.RIGHT: np.column_stack((
-                np.zeros_like(self.params.norm_line_points) + self.params.right_pos[0],
-                self.params.norm_line_points
-                - feature_length
+                np.zeros_like(self.params.feature_point_positions_mm)
+                + self.params.right_pos[0],
+                -self.params.feature_point_positions_mm[::-1]
                 + self.params.right_pos[1],
-                np.zeros_like(self.params.norm_line_points),
+                np.zeros_like(self.params.feature_point_positions_mm),
             )),
         }
         return obj_map
@@ -1058,6 +1048,10 @@ class Tracker:
         cross_ratio = (AB / BD) / (AC / CD)
         return float(cross_ratio)
 
+    @property
+    def target_cr(self) -> float:
+        return self.cross_ratio(self.params.feature_point_positions_mm)
+
     def find_feature_lines(
         self, fragments: list[Fragment], ellipses: list[Ellipse]
     ) -> list[FeatureLine]:
@@ -1070,7 +1064,7 @@ class Tracker:
         for frag in fragments:
             t, line_points = project_to_line(frag.params, ellipse_points)
             distance = np.linalg.norm(line_points - ellipse_points, axis=1)
-            mask = distance < self.params.fragments_max_projection_error
+            mask = distance < self.params.feature_line_max_projection_error
 
             ellipse_candidates = ellipse_points[mask]
             t_candidates = t[mask]
@@ -1090,44 +1084,22 @@ class Tracker:
                     t_candidates[i],
                     t_candidates[j],
                 ])
+
+                if not (
+                    max(frag_t) < min(t_candidates[i], t_candidates[j])
+                    or min(frag_t) > max(t_candidates[i], t_candidates[j])
+                ):
+                    # Both ellipses must be on one side of the fragment
+                    continue
+
                 ordered_indices = np.argsort(t_values)
                 t_values = t_values[ordered_indices]
 
                 cr = self.cross_ratio(t_values)
 
-                if self.params.debug and False:  # noqa: SIM223
-                    vis = self.debug.img_raw.copy()
-                    cv2.polylines(
-                        vis,
-                        [np.array([frag.start_pt, frag.end_pt], dtype=int)],
-                        isClosed=False,
-                        color=(255, 0, 0),
-                        thickness=2,
-                    )
-                    for p in ellipse_points:
-                        cv2.circle(vis, (int(p[0]), int(p[1])), 3, (0, 0, 255), -1)
-                    for p in ellipse_points[mask]:
-                        cv2.circle(vis, (int(p[0]), int(p[1])), 5, (0, 255, 0), -1)
-                    for p in ellipse_candidates[[i, j]]:
-                        cv2.circle(vis, (int(p[0]), int(p[1])), 7, (0, 255, 255), -1)
-
-                    cv2.putText(
-                        vis,
-                        f"CR: {cr:.3f}",
-                        (50, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        1,
-                        (0, 0, 255)
-                        if abs(cr - 0.375) > self.params.max_cr_error
-                        else (0, 255, 0),
-                        2,
-                    )
-                    cv2.imshow("Feature Line Debug", vis)
-                    cv2.waitKey(1)
-                target_cr = 0.375
                 # Pick up candidates that are close to good enough so we have more
                 # information for debugging.
-                if abs(cr - target_cr) < self.params.max_cr_error * 1.5:
+                if abs(cr - self.target_cr) < self.params.max_cr_error * 1.5:
                     feature_line_points = np.array([
                         frag.start_pt,
                         frag.end_pt,
@@ -1152,7 +1124,7 @@ class Tracker:
             for line, cr, length in zip(
                 feature_lines, cr_values, line_lengths, strict=True
             )
-            if abs(cr - 0.375) <= self.params.max_cr_error
+            if abs(cr - self.target_cr) <= self.params.max_cr_error
             and length <= self.params.max_feature_line_length
         ]
 

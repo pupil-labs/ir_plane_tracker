@@ -10,8 +10,9 @@ from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
 
 
 class MainWindow(QWidget):
-    on_feature_overlay_toggled = Signal()
-    on_gaze_overlay_toggled = Signal()
+    feature_overlay_toggled = Signal()
+    gaze_overlay_toggled = Signal()
+    close_requested = Signal()
 
     def __init__(self, target_screen: QScreen, parent=None):
         super().__init__(parent)
@@ -22,17 +23,17 @@ class MainWindow(QWidget):
         settings_menu = menubar.addMenu("Menu")
 
         gaze_toggle_action = QAction("Toggle Gaze Overlay", self)
-        gaze_toggle_action.triggered.connect(self.on_gaze_overlay_toggled.emit)
+        gaze_toggle_action.triggered.connect(self.gaze_overlay_toggled.emit)
         settings_menu.addAction(gaze_toggle_action)
 
         feature_overlay_toggle_action = QAction("Toggle Feature Overlay", self)
         feature_overlay_toggle_action.triggered.connect(
-            self.on_feature_overlay_toggled.emit
+            self.feature_overlay_toggled.emit
         )
         settings_menu.addAction(feature_overlay_toggle_action)
 
         close_action = QAction("Close", self)
-        close_action.triggered.connect(self.close)
+        close_action.triggered.connect(self.close_requested.emit)
         settings_menu.addAction(close_action)
 
         layout.setMenuBar(menubar)
