@@ -26,9 +26,12 @@ To install the package and its dependencies, run the following commands:
 git clone git@github.com:pupil-labs/ir_plane_tracker.git
 cd ir_plane_tracker/
 
-uv sync --extra examples
+uv sync --group examples
 # alternatively via pip:
 # pip install .[examples]
+#
+# in order to run examples that connect Neon via USB, you also need to install the 'usb' extra:
+# uv sync --group examples --group usb
 ```
 
 ## Example Applications

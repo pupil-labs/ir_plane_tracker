@@ -1348,12 +1348,14 @@ dev = [
 examples = [
     { name = "aiortsp" },
     { name = "pupil-labs-realtime-api" },
-    { name = "pupil-labs-uvc" },
     { name = "pyqtdarktheme" },
-    { name = "pyrav4l2" },
     { name = "pyside6" },
-    { name = "pyusb" },
     { name = "qimage2ndarray" },
+]
+usb = [
+    { name = "pupil-labs-uvc" },
+    { name = "pyrav4l2" },
+    { name = "pyusb" },
 ]
 
 [package.metadata]
@@ -1387,12 +1389,14 @@ dev = [
 examples = [
     { name = "aiortsp", specifier = ">=1.4.0" },
     { name = "pupil-labs-realtime-api", specifier = ">=1.7.2" },
-    { name = "pupil-labs-uvc", specifier = ">=1.0.0" },
     { name = "pyqtdarktheme", specifier = ">=2.1.0" },
-    { name = "pyrav4l2", git = "https://github.com/antmicro/pyrav4l2.git" },
     { name = "pyside6", specifier = ">=6.10.0" },
-    { name = "pyusb", specifier = ">=1.3.1" },
     { name = "qimage2ndarray", specifier = ">=1.10.0" },
+]
+usb = [
+    { name = "pupil-labs-uvc", specifier = ">=1.0.0" },
+    { name = "pyrav4l2", git = "https://github.com/antmicro/pyrav4l2.git" },
+    { name = "pyusb", specifier = ">=1.3.1" },
 ]
 
 [[package]]
