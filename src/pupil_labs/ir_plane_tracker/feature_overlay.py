@@ -30,7 +30,7 @@ class FeatureOverlay(QWidget):
 
         self.feature_overlay_painter = FeatureOverlayPainter(self)
         self.screen_size_mm = target_screen.physicalSize().toTuple()
-        self.screen_size_px = target_screen.size().toTuple()
+        self.screen_size_px = target_screen.availableSize().toTuple()
         self.mm2px = self.screen_size_px[0] / self.screen_size_mm[0]
 
     def update_marker_positions(self) -> None:
@@ -64,12 +64,14 @@ class FeatureOverlay(QWidget):
 
     @property
     def feature_composition_px(self) -> np.ndarray:
-        return np.concatenate([
-            self._top_feature_px,
-            self._right_feature_px,
-            self._bottom_feature_px,
-            self._left_feature_px,
-        ])
+        return np.concatenate(
+            [
+                self._top_feature_px,
+                self._right_feature_px,
+                self._bottom_feature_px,
+                self._left_feature_px,
+            ]
+        )
 
     @property
     def feature_thickness_px(self):
@@ -77,11 +79,13 @@ class FeatureOverlay(QWidget):
 
     @property
     def _top_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            self.feature_point_positions_px.max()
-            - self.feature_point_positions_px[::-1],
-            np.zeros(4),
-        ])
+        points = np.column_stack(
+            [
+                self.feature_point_positions_px.max()
+                - self.feature_point_positions_px[::-1],
+                np.zeros(4),
+            ]
+        )
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] += self.feature_thickness_px / 2 + self.padding_px
@@ -90,10 +94,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _bottom_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            self.feature_point_positions_px,
-            np.ones(4) * self.screen_size_px[1],
-        ])
+        points = np.column_stack(
+            [
+                self.feature_point_positions_px,
+                np.ones(4) * self.screen_size_px[1],
+            ]
+        )
         points[:, 0] -= points[:, 0].max() / 2
         points[:, 0] += self.screen_size_px[0] / 2
         points[:, 1] -= self.feature_thickness_px / 2 + self.padding_px
@@ -102,10 +108,12 @@ class FeatureOverlay(QWidget):
 
     @property
     def _left_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            np.zeros(4),
-            self.feature_point_positions_px,
-        ])
+        points = np.column_stack(
+            [
+                np.zeros(4),
+                self.feature_point_positions_px,
+            ]
+        )
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] += self.feature_thickness_px / 2 + self.padding_px
@@ -114,11 +122,13 @@ class FeatureOverlay(QWidget):
 
     @property
     def _right_feature_px(self) -> npt.NDArray[np.int64]:
-        points = np.column_stack([
-            np.ones(4) * self.screen_size_px[0],
-            self.feature_point_positions_px.max()
-            - self.feature_point_positions_px[::-1],
-        ])
+        points = np.column_stack(
+            [
+                np.ones(4) * self.screen_size_px[0],
+                self.feature_point_positions_px.max()
+                - self.feature_point_positions_px[::-1],
+            ]
+        )
         points[:, 1] -= points[:, 1].max() / 2
         points[:, 1] += self.screen_size_px[1] / 2
         points[:, 0] -= self.feature_thickness_px / 2 + self.padding_px
