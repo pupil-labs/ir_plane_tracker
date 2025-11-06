@@ -1,4 +1,5 @@
 import platform
+
 import numpy.typing as npt
 from common.eye_tracking_sources import EyeTrackingData
 from PySide6.QtCore import Qt
@@ -11,7 +12,7 @@ from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
 class GazeOverlay(QWidget):
     def __init__(self, target_screen):
         super().__init__()
-        self.gaze = []
+        self.gaze = None
 
         self.setWindowFlag(Qt.FramelessWindowHint)
         self.setWindowFlag(Qt.WindowStaysOnTopHint)
