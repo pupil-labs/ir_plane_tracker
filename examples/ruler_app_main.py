@@ -109,15 +109,15 @@ class RulerWindow(QMainWindow):
 
         width_mm = screen.physicalSize().width()
         height_mm = screen.physicalSize().height()
-        width_px = screen.size().width()
-        height_px = screen.size().height()
+        width_px = screen.availableSize().width()
+        height_px = screen.availableSize().height()
 
         # conversion factors
         mm_per_pixel_x = width_mm / width_px
         mm_per_pixel_y = height_mm / height_px
 
         label = QLabel(
-            f"{width_px} x {height_px} px\n{width_mm:.1f} x {height_mm:.1f} mm\nESC to close"
+            f"{width_px} x {height_px} px\n{width_mm:.1f} x {height_mm:.1f} mm\nESC to close"  # noqa: E501
         )
         label.setAlignment(Qt.AlignCenter)
         label.setStyleSheet("color: black; font-size: 24px; background: transparent;")
