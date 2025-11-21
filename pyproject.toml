@@ -23,13 +23,6 @@ dependencies = [
     "opencv-python>=4.11.0.86",
 ]
 
-[project.optional-dependencies]
-examples = [
-    # "opencv-python",
-    # "pandas",
-    # "tqdm",
-]
-
 [project.urls]
 Homepage = "https://pupil-labs.github.io/pl-ir-plane-tracker"
 Documentation = "https://pupil-labs.github.io/pl-ir-plane-tracker"
@@ -63,7 +56,7 @@ dev-dependencies = [
 ]
 
 [tool.uv.sources]
-pyrav4l2 = { git = "https://github.com/antmicro/pyrav4l2.git" }
+pupil-labs-mar-common = { git = "https://github.com/pupil-labs/mar-common.git" }
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
@@ -72,15 +65,11 @@ build-backend = "hatchling.build"
 [dependency-groups]
 examples = [
     "aiortsp>=1.4.0",
+    "pupil-labs-mar-common",
     "pupil-labs-realtime-api>=1.7.2",
     "pyqtdarktheme>=2.1.0",
     "pyside6>=6.10.0",
     "qimage2ndarray>=1.10.0",
-]
-usb = [
-    "pyusb>=1.3.1",
-    "pyrav4l2>=1.0",
-    "pupil-labs-uvc>=1.0.0",
 ]
 
 [tool.pytest.ini_options]

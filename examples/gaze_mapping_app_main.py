@@ -1,6 +1,5 @@
 import click
 import cv2
-from common import eye_tracking_sources
 from gaze_mapping_app.app_window import MainWindow
 from gaze_mapping_app.gaze_overlay import GazeOverlay
 from PySide6.QtCore import QTimer, Signal
@@ -10,6 +9,8 @@ from PySide6.QtWidgets import QApplication
 from pupil_labs.ir_plane_tracker import Tracker
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
+from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingSource
+from pupil_labs.mar_common.eye_tracking_sources.neon_remote import NeonRemote
 
 
 class GazeMappingApp(QApplication):
@@ -44,7 +45,7 @@ class GazeMappingApp(QApplication):
         }
 
         if neon_ip is not None:
-            device = eye_tracking_sources.RemoteSource(ip=neon_ip, port=neon_port)
+            device = NeonRemote(ip_address=neon_ip, port=neon_port)
             self.on_new_source_connected(device)
 
         screens = QGuiApplication.screens()
@@ -90,12 +91,14 @@ class GazeMappingApp(QApplication):
         self.main_window.close()
         self.quit()
 
-    def on_new_source_connected(self, source: eye_tracking_sources.EyeTrackingSource):
+    def on_new_source_connected(self, source: EyeTrackingSource):
         if self.eye_tracking_source is not None:
             self.eye_tracking_source.close()
         self.eye_tracking_source = source
         self.camera_matrix = self.eye_tracking_source.scene_intrinsics.camera_matrix
-        self.dist_coeffs = self.eye_tracking_source.scene_intrinsics.distortion_coeffs
+        self.dist_coeffs = (
+            self.eye_tracking_source.scene_intrinsics.distortion_coefficients
+        )
         self.tracker.camera_matrix = self.camera_matrix
 
     def on_source_disconnect_requested(self):

@@ -29,9 +29,6 @@ cd ir_plane_tracker/
 uv sync --group examples
 # alternatively via pip:
 # pip install .[examples]
-#
-# in order to run examples that connect Neon via USB, you also need to install the 'usb' extra:
-# uv sync --group examples --group usb
 ```
 
 ## Example Applications

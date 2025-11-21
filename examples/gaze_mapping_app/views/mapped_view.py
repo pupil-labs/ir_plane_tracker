@@ -1,11 +1,11 @@
 import cv2
 import numpy.typing as npt
-from common import utils
-from common.eye_tracking_sources import EyeTrackingData
-from common.widgets.scaled_image_view import ScaledImageView
 from PySide6.QtGui import QScreen
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
+from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
+from pupil_labs.mar_common.ui import utils
+from pupil_labs.mar_common.ui.scaled_image_view import ScaledImageView
 
 
 class MappedView(ScaledImageView):

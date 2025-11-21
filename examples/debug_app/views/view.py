@@ -1,4 +1,3 @@
-from common.eye_tracking_sources import EyeTrackingData
 from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QWidget
 
@@ -7,6 +6,7 @@ from pupil_labs.ir_plane_tracker import (
     PlaneLocalization,
     TrackerParams,
 )
+from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
 
 
 class View(QWidget):

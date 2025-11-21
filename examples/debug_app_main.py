@@ -1,7 +1,6 @@
 import click
 import cv2
 import qdarktheme
-from common import eye_tracking_sources
 from debug_app.app_window import AppWindow
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QApplication
@@ -9,6 +8,7 @@ from PySide6.QtWidgets import QApplication
 from pupil_labs.ir_plane_tracker import Tracker
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
+from pupil_labs.mar_common.eye_tracking_sources.neon_usb import NeonUSB
 
 
 class DebugApp(QApplication):
@@ -22,10 +22,12 @@ class DebugApp(QApplication):
         #     # recording_path="/home/marc/pupil_labs/IR_plane_tracker/examples/offline_recording/data/indoor4",  # noqa: E501
         #     recording_path="/home/marc/Downloads/Native Recording Data (9)/2025-10-30_09-06-12-6ed1deef"  # noqa: E501
         # )
-        self.eye_tracking_source = eye_tracking_sources.USBSource()
+        self.eye_tracking_source = NeonUSB(compute_gaze=False)
 
         self.camera_matrix = self.eye_tracking_source.scene_intrinsics.camera_matrix
-        self.dist_coeffs = self.eye_tracking_source.scene_intrinsics.distortion_coeffs
+        self.dist_coeffs = (
+            self.eye_tracking_source.scene_intrinsics.distortion_coefficients
+        )
 
         self.params = TrackerParamsWrapper.from_json(params_path)
 

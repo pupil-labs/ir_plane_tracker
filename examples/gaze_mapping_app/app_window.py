@@ -1,6 +1,4 @@
 import numpy.typing as npt
-from common.eye_tracking_sources import EyeTrackingData
-from common.source_widget import SourceWidget
 from gaze_mapping_app.views.mapped_view import MappedView
 from gaze_mapping_app.views.raw_image_view import RawImageView
 from PySide6.QtCore import Signal
@@ -8,6 +6,8 @@ from PySide6.QtGui import QAction, QScreen
 from PySide6.QtWidgets import QHBoxLayout, QMenuBar, QWidget
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
+from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
+from pupil_labs.mar_common.ui.eye_tracking_source import SourceWidget
 
 
 class MainWindow(QWidget):
