@@ -32,7 +32,7 @@ class RawImageView(View):
         plane_localization: PlaneLocalization,
         debug: DebugData,
     ):
-        vis = eye_tracking_data.scene.copy()
+        vis = eye_tracking_data.scene_image_undistorted.copy()
 
         if plane_localization is not None:
             cv2.polylines(

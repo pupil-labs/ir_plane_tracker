@@ -1,5 +1,4 @@
 import click
-import cv2
 import qdarktheme
 from debug_app.app_window import AppWindow
 from PySide6.QtCore import QTimer, Signal
@@ -73,16 +72,14 @@ class DebugApp(QApplication):
 
     def update_data(self):
         eye_tracking_data = self.eye_tracking_source.get_sample()
-        eye_tracking_data.scene = cv2.undistort(
-            eye_tracking_data.scene, self.camera_matrix, self.dist_coeffs
-        )  # type: ignore
         self.last_data = eye_tracking_data
 
     def poll(self):
         if self.playback or self.last_data is None:
             self.update_data()
 
-        plane_localization = self.tracker(self.last_data.scene)
+        assert self.last_data is not None
+        plane_localization = self.tracker(self.last_data.scene_image_undistorted)
         assert self.last_data is not None
         self.data_changed.emit(self.last_data, plane_localization, self.tracker.debug)
 
