@@ -1193,6 +1193,15 @@ wheels = [
 ]
 
 [[package]]
+name = "opencv-stubs"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/41/92b964d8391689fd142f940c1d9f4ecf8eeac3290a26481e4c43bf175255/opencv_stubs-0.1.1.tar.gz", hash = "sha256:abc55ef2d694bcf7045eca56c82a380e488e7ce540cee35f905e630ba103266f", size = 373849, upload-time = "2025-11-04T03:11:35.839Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/03/552f70192c14297eb6074b67912bb1dfcb4cdbe2ad7c9a4fdbd6e6fca70b/opencv_stubs-0.1.1-py3-none-any.whl", hash = "sha256:092280564456ea49e925a421a7f4584f936f0a443a67c21fbe09666d8d580dfb", size = 363098, upload-time = "2025-11-04T03:11:34.654Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "25.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1367,6 +1376,7 @@ dev = [
     { name = "mkdocs-minify-plugin" },
     { name = "mkdocstrings", extra = ["python"] },
     { name = "mypy" },
+    { name = "opencv-stubs" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -1403,6 +1413,7 @@ dev = [
     { name = "mkdocs-minify-plugin", specifier = ">=0.8" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.25" },
     { name = "mypy", specifier = ">=0.991" },
+    { name = "opencv-stubs" },
     { name = "pre-commit", specifier = ">=2.20.0" },
     { name = "pytest", specifier = ">=8.2" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
