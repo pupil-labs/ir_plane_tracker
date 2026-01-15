@@ -369,12 +369,20 @@ class Combinations:
 
 @dataclass
 class TrackerParams:
+    """Parameters for the IR plane tracker."""
+
     plane_width: float = np.nan
+    """Width of the tracked plane in mm."""
     plane_height: float = np.nan
+    """Height of the tracked plane in mm."""
     top_pos: tuple[float, float] = (np.nan, np.nan)
+    """Position of the top marker in mm."""
     bottom_pos: tuple[float, float] = (np.nan, np.nan)
+    """Position of the bottom marker in mm."""
     right_pos: tuple[float, float] = (np.nan, np.nan)
+    """Position of the right marker in mm."""
     left_pos: tuple[float, float] = (np.nan, np.nan)
+    """Position of the left marker in mm."""
 
     feature_point_positions_mm: npt.NDArray[np.float64] = field(
         default_factory=lambda: np.array([0.0, 6.0, 8.0, 10.0])
@@ -847,19 +855,35 @@ class DebugData:
 
 @dataclass
 class PlaneLocalization:
+    """Result of plane localization."""
+
     corners: npt.NDArray[np.float64]
+    """Corners of the plane in image coordinates."""
     img2plane: npt.NDArray[np.float64]
+    """Transformation matrix from image to plane coordinates."""
     plane2img: npt.NDArray[np.float64]
+    """Transformation matrix from plane to image coordinates."""
     reprojection_error: float
+    """Reprojection error of the localization in pixels."""
 
 
 class Tracker:
+    """A Tracker for tracking planes marked with markers."""
+
     def __init__(
         self,
         camera_matrix: npt.NDArray[np.float64],
         dist_coeffs: npt.NDArray[np.float64],
         params: TrackerParams | None = None,
     ):
+        """Creates a Tracker instance for tracking planes marked with markers.
+
+        Args:
+            camera_matrix: Camera intrinsic matrix.
+            dist_coeffs: Camera distortion coefficients.
+            params: Tracker parameters. If None, default parameters are used.
+
+        """
         self.camera_matrix = camera_matrix
         self.dist_coeffs = dist_coeffs
         if params is None:
@@ -1242,6 +1266,15 @@ class Tracker:
         return localization
 
     def __call__(self, image: npt.NDArray[np.uint8]) -> PlaneLocalization | None:
+        """Tracks the plane in the given image.
+
+        Args:
+            image: Input image.
+
+        Returns:
+            PlaneLocalization if the plane is found, None otherwise.
+
+        """
         self.debug = DebugData(self.params)
         self.debug.img_raw = image.copy()
         # image = cv2.undistort(image, self.camera_matrix, self.dist_coeffs)

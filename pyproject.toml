@@ -30,14 +30,21 @@ Repository = "https://github.com/pupil-labs/pl-ir-plane-tracker"
 Issues = "https://github.com/pupil-labs/pl-ir-plane-tracker/issues"
 
 
-[tool.uv]
-dev-dependencies = [
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
     "pytest>=8.2",
     "pre-commit>=2.20.0",
     "mypy>=0.991",
     "deptry>=0.20.0",
     "tox-uv>=1.11.3",
     "pytest-cov>=4.0.0",
+
+    # stubs
+    "opencv-stubs",
 
     # docs
     "markdown-callouts>=0.4",
@@ -55,11 +62,6 @@ dev-dependencies = [
     "tomli>=2.0; python_version < '3.11'",
 ]
 
-[build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
-build-backend = "hatchling.build"
-
-[dependency-groups]
 examples = [
     "aiortsp>=1.4.0",
     "pupil-labs-realtime-api>=1.7.2",
@@ -67,6 +69,9 @@ examples = [
     "pyside6>=6.10.0",
     "qimage2ndarray>=1.10.0",
 ]
+
+[tool.uv.sources]
+pupil-labs-mar-common = { git = "https://github.com/pupil-labs/mar-common.git" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
