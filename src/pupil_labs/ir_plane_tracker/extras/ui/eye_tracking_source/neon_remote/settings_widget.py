@@ -35,8 +35,7 @@ class ConnectionForm(QWidget):
 
         self.refresh_button = QToolButton()
         self.refresh_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.MinimumExpanding
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding
         )
         self.refresh_button.setText("🔍")
         self.refresh_button.setToolTip("Disocver devices on the network")
@@ -175,7 +174,11 @@ class SettingsWidget(QWidget):
         self.stacked_layout.setCurrentWidget(self.connected_device_info)
 
     def set_connection_failure(self, host: str, port: int):
-        QMessageBox.warning(self, "Connection Failed", f"Unable to connect to device at {host} on port {port}")
+        QMessageBox.warning(
+            self,
+            "Connection Failed",
+            f"Unable to connect to device at {host} on port {port}",
+        )
         self.stacked_layout.setCurrentWidget(self.connection_form)
 
     def on_disconnect_requested(self):

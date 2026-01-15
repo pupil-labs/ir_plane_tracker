@@ -7,10 +7,12 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
 from pupil_labs.ir_plane_tracker import Tracker
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingSource
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources.neon_remote import (
+    NeonRemote,
+)
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
-from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingSource
-from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources.neon_remote import NeonRemote
 
 
 class GazeMappingApp(QApplication):

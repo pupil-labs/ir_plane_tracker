@@ -35,6 +35,4 @@ class SourceWidget(QWidget):
         widget.new_device_connected.connect(
             lambda device: self.new_device_connected.emit(device)
         )
-        widget.disconnect_requested.connect(
-            lambda: self.disconnect_requested.emit()
-        )
+        widget.disconnect_requested.connect(lambda: self.disconnect_requested.emit())
