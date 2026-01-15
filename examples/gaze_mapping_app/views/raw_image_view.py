@@ -14,11 +14,11 @@ class RawImageView(ScaledImageView):
         debug: DebugData,
         gaze_mapped: npt.NDArray | None,
     ):
-        vis = eye_tracking_data.scene.copy()
-        if eye_tracking_data.gaze is not None:
+        vis = eye_tracking_data.scene_image_distorted.copy()
+        if eye_tracking_data.gaze_scene_distorted is not None:
             cv2.circle(
                 vis,
-                (int(eye_tracking_data.gaze[0]), int(eye_tracking_data.gaze[1])),
+                (int(eye_tracking_data.gaze_scene_distorted[0]), int(eye_tracking_data.gaze_scene_distorted[1])),
                 30,
                 (0, 0, 255),
                 3,
