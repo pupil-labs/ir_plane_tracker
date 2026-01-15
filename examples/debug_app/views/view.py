@@ -6,7 +6,7 @@ from pupil_labs.ir_plane_tracker import (
     PlaneLocalization,
     TrackerParams,
 )
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingData
 
 
 class View(QWidget):

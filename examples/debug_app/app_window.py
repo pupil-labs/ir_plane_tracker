@@ -4,8 +4,8 @@ from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QTabWidget, QVBoxLayout, QWidget
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingData
 from pupil_labs.ir_plane_tracker.tracker import TrackerParams
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
 
 
 class AppWindow(QWidget):

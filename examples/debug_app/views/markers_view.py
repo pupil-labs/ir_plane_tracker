@@ -4,8 +4,8 @@ from debug_app.widgets.labeled_slider import LabeledSlider
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
-from pupil_labs.mar_common.ui.scaled_image_view import ScaledImageView
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingData
+from pupil_labs.ir_plane_tracker.extras.ui.scaled_image_view import ScaledImageView
 
 
 class MarkersView(View):

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication
 from pupil_labs.ir_plane_tracker import Tracker
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
-from pupil_labs.mar_common.eye_tracking_sources.neon_usb import NeonUSB
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources.neon_usb import NeonUSB
 
 
 class DebugApp(QApplication):

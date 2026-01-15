@@ -55,9 +55,6 @@ dev-dependencies = [
     "tomli>=2.0; python_version < '3.11'",
 ]
 
-[tool.uv.sources]
-pupil-labs-mar-common = { git = "https://github.com/pupil-labs/mar-common.git" }
-
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
@@ -65,7 +62,6 @@ build-backend = "hatchling.build"
 [dependency-groups]
 examples = [
     "aiortsp>=1.4.0",
-    "pupil-labs-mar-common",
     "pupil-labs-realtime-api>=1.7.2",
     "pyqtdarktheme>=2.1.0",
     "pyside6>=6.10.0",

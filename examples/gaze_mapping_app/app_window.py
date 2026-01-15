@@ -6,8 +6,8 @@ from PySide6.QtGui import QAction, QScreen
 from PySide6.QtWidgets import QHBoxLayout, QMenuBar, QWidget
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
-from pupil_labs.mar_common.ui.eye_tracking_source import SourceWidget
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingData
+from pupil_labs.ir_plane_tracker.extras.ui.eye_tracking_source import SourceWidget
 
 
 class MainWindow(QWidget):
