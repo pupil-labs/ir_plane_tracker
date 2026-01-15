@@ -18,7 +18,10 @@ class RawImageView(ScaledImageView):
         if eye_tracking_data.gaze_scene_distorted is not None:
             cv2.circle(
                 vis,
-                (int(eye_tracking_data.gaze_scene_distorted[0]), int(eye_tracking_data.gaze_scene_distorted[1])),
+                (
+                    int(eye_tracking_data.gaze_scene_distorted[0]),
+                    int(eye_tracking_data.gaze_scene_distorted[1]),
+                ),
                 30,
                 (0, 0, 255),
                 3,
