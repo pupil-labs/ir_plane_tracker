@@ -5,7 +5,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
+    QSizePolicy,
     QSpinBox,
     QStackedLayout,
     QToolButton,
@@ -21,9 +23,7 @@ class ConnectionForm(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(QLabel("<center><b>Connect to Device</b></center>"))
-
+        main_layout = QVBoxLayout(self)
         form_layout = QFormLayout()
 
         device_selector_layout = QHBoxLayout()
@@ -34,7 +34,11 @@ class ConnectionForm(QWidget):
         self.device_combo.currentIndexChanged.connect(self._on_selected_device_changed)
 
         self.refresh_button = QToolButton()
+        self.refresh_button.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.MinimumExpanding
+        )
         self.refresh_button.setText("🔍")
+        self.refresh_button.setToolTip("Disocver devices on the network")
         self.refresh_button.clicked.connect(lambda: self.device_search_requested.emit())
 
         device_selector_layout.addWidget(self.device_combo)
@@ -56,8 +60,6 @@ class ConnectionForm(QWidget):
         self.connect_button = QPushButton("Connect")
         self.connect_button.clicked.connect(self._on_connect_clicked)
         main_layout.addWidget(self.connect_button)
-
-        self.setLayout(main_layout)
 
     def _on_connect_clicked(self):
         host = self.phone_ip.text()
@@ -94,8 +96,9 @@ class ConnectedDeviceInfo(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        layout = QVBoxLayout()
-        self.label = QLabel("<center><b>Connected!</b></center>")
+        layout = QVBoxLayout(self)
+
+        self.label = QLabel("")
         layout.addWidget(self.label)
 
         form_layout = QFormLayout()
@@ -113,8 +116,6 @@ class ConnectedDeviceInfo(QWidget):
         self.button = QPushButton("Disconnect")
         self.button.clicked.connect(lambda: self.disconnect_requested.emit())
         layout.addWidget(self.button)
-
-        self.setLayout(layout)
 
     def set_connected(self, host: str, port: int):
         self.label.setText("<center><b>Connected!</b></center>")
@@ -173,8 +174,12 @@ class SettingsWidget(QWidget):
         self.stacked_layout.setCurrentWidget(self.connected_device_info)
 
     def set_connection_failure(self, host: str, port: int):
-        self.connected_device_info.set_connection_failure(host, port)
-        self.stacked_layout.setCurrentWidget(self.connected_device_info)
+        QMessageBox.warning(
+            self,
+            "Connection Failed",
+            f"Unable to connect to device at {host} on port {port}",
+        )
+        self.stacked_layout.setCurrentWidget(self.connection_form)
 
     def on_disconnect_requested(self):
         self.stacked_layout.setCurrentWidget(self.connection_form)

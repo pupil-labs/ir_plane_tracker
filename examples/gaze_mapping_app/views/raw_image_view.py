@@ -2,8 +2,8 @@ import cv2
 import numpy.typing as npt
 
 from pupil_labs.ir_plane_tracker import DebugData, PlaneLocalization
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingData
-from pupil_labs.mar_common.ui.scaled_image_view import ScaledImageView
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingData
+from pupil_labs.ir_plane_tracker.extras.ui.scaled_image_view import ScaledImageView
 
 
 class RawImageView(ScaledImageView):
@@ -14,11 +14,14 @@ class RawImageView(ScaledImageView):
         debug: DebugData,
         gaze_mapped: npt.NDArray | None,
     ):
-        vis = eye_tracking_data.scene.copy()
-        if eye_tracking_data.gaze is not None:
+        vis = eye_tracking_data.scene_image_distorted.copy()
+        if eye_tracking_data.gaze_scene_distorted is not None:
             cv2.circle(
                 vis,
-                (int(eye_tracking_data.gaze[0]), int(eye_tracking_data.gaze[1])),
+                (
+                    int(eye_tracking_data.gaze_scene_distorted[0]),
+                    int(eye_tracking_data.gaze_scene_distorted[1]),
+                ),
                 30,
                 (0, 0, 255),
                 3,

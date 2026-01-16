@@ -1,5 +1,4 @@
 import click
-import cv2
 from gaze_mapping_app.app_window import MainWindow
 from gaze_mapping_app.gaze_overlay import GazeOverlay
 from PySide6.QtCore import QTimer, Signal
@@ -7,10 +6,12 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
 from pupil_labs.ir_plane_tracker import Tracker
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources import EyeTrackingSource
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources.neon_remote import (
+    NeonRemote,
+)
 from pupil_labs.ir_plane_tracker.feature_overlay import FeatureOverlay
 from pupil_labs.ir_plane_tracker.tracker_params_wrapper import TrackerParamsWrapper
-from pupil_labs.mar_common.eye_tracking_sources import EyeTrackingSource
-from pupil_labs.mar_common.eye_tracking_sources.neon_remote import NeonRemote
 
 
 class GazeMappingApp(QApplication):
@@ -128,13 +129,10 @@ class GazeMappingApp(QApplication):
     def poll(self):
         if self.eye_tracking_source is not None:
             eye_tracking_data = self.eye_tracking_source.get_sample()
-            eye_tracking_data.scene = cv2.undistort(
-                eye_tracking_data.scene, self.camera_matrix, self.dist_coeffs
-            )  # type: ignore
-            plane_localization = self.tracker(eye_tracking_data.scene)
+            plane_localization = self.tracker(eye_tracking_data.scene_image_undistorted)
             gaze_mapped = None
             if plane_localization is not None:
-                gaze = eye_tracking_data.gaze
+                gaze = eye_tracking_data.gaze_scene_distorted
                 if gaze is not None:
                     gaze_mapped = plane_localization.img2plane @ [*gaze, 1]
                     gaze_mapped = gaze_mapped / gaze_mapped[2]

@@ -64,7 +64,7 @@ dev = [
 
 examples = [
     "aiortsp>=1.4.0",
-    "pupil-labs-mar-common",
+    "pupil-labs-neon-usb>=0.0.1.post2",
     "pupil-labs-realtime-api>=1.7.2",
     "pyqtdarktheme>=2.1.0",
     "pyside6>=6.10.0",
@@ -72,7 +72,6 @@ examples = [
 ]
 
 [tool.uv.sources]
-pupil-labs-mar-common = { git = "https://github.com/pupil-labs/mar-common.git" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

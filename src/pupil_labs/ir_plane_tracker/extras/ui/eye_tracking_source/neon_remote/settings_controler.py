@@ -1,10 +1,11 @@
 from PySide6.QtCore import QObject, Signal
 
-from pupil_labs.gaze_control.eye_tracking.neon_remote import workers
-from pupil_labs.gaze_control.eye_tracking.neon_remote.settings_widget import (
+from pupil_labs.realtime_api.simple import Device
+
+from . import workers
+from .settings_widget import (
     SettingsWidget,
 )
-from pupil_labs.realtime_api.simple import Device
 
 
 class SettingsController(QObject):

@@ -1,14 +1,12 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtGui import QShowEvent
+from PySide6.QtWidgets import QVBoxLayout
 
+from ..eye_tracking_source_widget import EyeTrackingSourceWidget
 from .settings_controler import SettingsController
 from .settings_widget import SettingsWidget
 
 
-class HDDigitalWidget(QWidget):
-    new_device_connected = Signal(object)
-    disconnect_requested = Signal()
-
+class NeonRemoteWidget(EyeTrackingSourceWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.settings_widget = SettingsWidget()
@@ -24,3 +22,7 @@ class HDDigitalWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.settings_widget)
         self.setLayout(layout)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        self.settings_controller.on_device_search_requested()
+        return super().showEvent(event)

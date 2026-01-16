@@ -1,8 +1,9 @@
 from PySide6.QtCore import QThread, Signal
 
+from pupil_labs.ir_plane_tracker.extras.eye_tracking_sources.neon_remote import (
+    NeonRemote,
+)
 from pupil_labs.realtime_api.simple import discover_devices
-
-from .eye_tracking_source import NeonRemote
 
 
 class DeviceDiscoveryWorker(QThread):
@@ -23,5 +24,8 @@ class DeviceConnectionWorker(QThread):
         self.port = port
 
     def run(self):
-        device = NeonRemote(self.host, self.port)
-        self.success.emit(device)
+        try:
+            device = NeonRemote(self.host, self.port)
+            self.success.emit(device)
+        except Exception:
+            self.failure.emit(self.host, self.port)
